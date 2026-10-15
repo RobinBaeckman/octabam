@@ -1,4 +1,0 @@
-/* Keep the first sidebar section label clear of the theme's top fade. */
-[data-slot="sidebar"] > .h-9 {
-  height: 3.25rem;
-}

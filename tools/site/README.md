@@ -1,6 +1,6 @@
 # The manual site
 
-The musician-facing manual, built with MkDocs Material and deployed to
+The musician-facing manual, built with MkDocs shadcn and deployed to
 GitHub Pages by `.github/workflows/pages.yml` on pushes to main. The same
 build, without the deploy, runs as the `site` job on every PR
 (`.github/workflows/ci.yml`).
@@ -54,6 +54,20 @@ included. Three consequences:
 `mkdocs build --strict` is the complementary gate: it fails on a broken
 site link or a broken snippet include (it does not check anchors;
 doclinks does).
+
+## Presentation
+
+The local stylesheet, `manual.css` in the site's `css/` directory, owns
+the light and dark palettes, reading width, navigation spacing, tables,
+and overview cards. The footer and page navigation are small theme overrides;
+the theme still provides navigation, search, and appearance controls. The overview uses
+Markdown inside HTML containers so MkDocs continues to resolve its links.
+Keep the remix comparison on the choosing page and the overview cards brief.
+
+When changing presentation, build strictly and inspect the overview, a remix,
+the comparison, a build guide, and a generated module page at phone and
+desktop widths in both appearances. Check navigation, search, keyboard
+focus, and horizontal table scrolling as well as the page layout.
 
 ## Build
 

@@ -1,16 +1,20 @@
 site_name: octabam manual
+site_description: A community remixer for the Elektron Octatrack. Choose a remix, explore its modules, and build from your own OS 1.40C.
 site_url: https://sambanks.github.io/octabam/
 repo_url: https://github.com/sambanks/octabam
 repo_name: sambanks/octabam
 docs_dir: .
 site_dir: ../../out/site
 # the _remix-*.md fragments are snippet includes, not pages
-exclude_docs: reference/_remix-*.md
+exclude_docs: |
+  reference/_remix-*.md
+  overrides/**
 extra_css:
-  - css/sidebar-spacing.css
-  - css/site-tables.css
+  - css/manual.css
 theme:
   name: shadcn
+  custom_dir: overrides
+  hide_source_files: true
   # The theme follows the system appearance; its header toggle can override it.
   show_title: true
   show_stargazers: false
@@ -34,6 +38,8 @@ nav:
       - Modules: reference/modules.md
       - Credits: reference/credits.md
 markdown_extensions:
+  - attr_list
+  - md_in_html
   - admonition
   - pymdownx.superfences:
       custom_fences:

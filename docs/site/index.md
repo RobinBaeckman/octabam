@@ -1,14 +1,79 @@
 # octabam manual
 
-octabam is an unofficial community remixer for the Elektron Octatrack's
-operating system. Not affiliated with Elektron.
+<div class="manual-intro" markdown="1">
 
-It composes **modules** — each one credited to its author — into **remixes**:
-named selections, built into one firmware image from your own copy of OS
-1.40C. The build places the code, wires the hooks by symbol, refuses
-collisions by name, and proves every ported module against its author's own
-build, byte for byte. No firmware is distributed here: a built image contains
-Elektron's OS, so you build it yourself, on your machine.
+<p class="manual-eyebrow">COMMUNITY FIRMWARE · OS 1.40C</p>
+
+<p class="manual-lead">Your Octatrack, remixed.</p>
+
+New ways to sequence, shape sound, and play. octabam combines community
+modules into a firmware image you build from your own copy of Octatrack
+OS 1.40C. Each module is credited to its author.
+
+[Choose a remix](choosing.md){ .manual-button }
+[Build and flash →](build-flash.md){ .manual-text-link }
+
+Unofficial community software. Read [Safety and recovery](safety.md)
+before flashing.
+
+</div>
+
+## Three ways to play
+
+The same core features, three approaches to effects. Compare the
+[full remix details](choosing.md), or explore a remix below.
+
+<div class="remix-grid" markdown="1">
+
+<div class="remix-card" markdown="1">
+
+<p class="manual-eyebrow">01 / CORE</p>
+
+### Keep the stock effects
+
+The core modules, all 14 stock effects, and both menus unchanged, with
+LO-FI's AMF knob fixed.
+
+[Explore octabam-core →](remix-core.md)
+
+</div>
+
+<div class="remix-card" markdown="1">
+
+<p class="manual-eyebrow">02 / INSERTS</p>
+
+### Shape every track
+
+SPECTRUM, CHARACTER, MODULATION, TRANSIENT and EUCLID on FX1 and FX2,
+GATE VERB, and the stock DELAY.
+
+[Explore octabam-inserts →](remix-inserts.md)
+
+</div>
+
+<div class="remix-card" markdown="1">
+
+<p class="manual-eyebrow">03 / BUS</p>
+
+### Play the sends
+
+DELAY on track 1, REVERB on track 5, and SEND on the other tracks except
+track 8, which keeps stock DELAY. Three inserts on FX1.
+
+[Explore octabam-bus →](remix-bus.md)
+
+</div>
+
+</div>
+
+!!! note "Current status: verified under the port"
+    None of the three remixes has run on a unit. Each is verified under the
+    port: an emulator build boots the image and every gate passes, but the
+    emulator is not the hardware. The closest hardware run is bottleservice
+    — the same delay and reverb bus without the core modules — which ran on
+    Sam's MKII (images A0–A6, recorded in the changelog).
+
+## Before you flash
 
 !!! warning "This is not official Elektron firmware"
     octabam is community software and is not supported by Elektron. A failed
@@ -21,28 +86,23 @@ Elektron's OS, so you build it yourself, on your machine.
     **Do not share a built image.** A built `.bin` or `.syx` contains
     Elektron's OS.
 
-The three remixes:
+## Make it yours
 
-| remix | what it adds | effects | where it has run |
-|---|---|---|---|
-| [octabam-core](remix-core.md) | the core modules only | all 14 stock effects, both menus unchanged (LO-FI's AMF knob fixed) | port gates only; not on a unit |
-| [octabam-inserts](remix-inserts.md) | core + insert effects | SPECTRUM, CHARACTER, MODULATION, TRANSIENT and EUCLID on FX1 and FX2, GATE VERB, the stock DELAY | port gates only; not on a unit |
-| [octabam-bus](remix-bus.md) | core + a delay and reverb bus | DELAY on track 1, REVERB on track 5, SEND on every other track, the stock DELAY on track 8; SPECTRUM, CHARACTER and MODULATION on FX1 | port gates only; not on a unit |
-
-None of the three has run on a unit. Each is verified under the port: an
-emulator build boots the image and every gate passes, but the emulator is not
-the hardware. The closest thing to a hardware run is bottleservice — the same
-delay and reverb bus without the core modules — which ran on Sam's MKII
-(images A0–A6, recorded in the changelog).
-
-Start here:
-
-- [Choosing a remix](choosing.md) — the three compared.
 - [Build your own remix](own-remix.md) — combine existing modules, check
   compatibility, and build a custom selection.
-- [Build and flash](build-flash.md) — from nothing installed to a flashed unit.
 - [BRAIN](brain.md) — the on-unit screens: templates, settings, defaults, and
   switching remixes from the card.
-- [Safety and recovery](safety.md) — the recovery procedure and its limits.
+- [Modules reference](reference/modules.md) — every module, its author, and
+  its proof status.
 
-The repository: https://github.com/sambanks/octabam
+## How it works
+
+**Modules** are individual contributions; **remixes** are named selections
+built into one firmware image. The build places the code, wires the hooks by
+symbol, refuses collisions by name, and proves every ported module against
+its author's own build, byte for byte. No firmware is distributed here:
+a built image contains Elektron's OS, so you build it yourself, on your
+machine. octabam is unofficial community software, not affiliated with
+Elektron.
+
+[Explore the repository on GitHub →](https://github.com/sambanks/octabam)
