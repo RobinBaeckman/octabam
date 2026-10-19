@@ -50,7 +50,9 @@ FUNC, T1, T8, NO, MIDI, PATTERN, TRIG1, TRIG2 = 0x2D, 0x10, 0x17, 0x32, 0x35, 0x
 PROJ, RIGHT, DOWN, YES = 0x1C, 0x21, 0x20, 0x31
 
 WORDS = ((0x80000008, 4), (0x8000000C, 4), (0x100B14D4, 4), (0x100B14D8, 4), (EDIT_FLAG, 4))
-SYMS = ("pm_gl_a", "pm_gl_m", "pm_pa", "pm_pm", "pm_ef_a", "pm_ef_m", "pm_layer")
+SYMS = ("pm_gl_a", "pm_gl_m", "pm_pa", "pm_pm", "pm_ef_a", "pm_ef_m")
+LAYER_B = 0x100B14DD                            # battery SRAM: bit 0 = PATTERN layer
+LED_CD, LED_BM, CUR_TRACK = 0x460BA9CC, 0x460BA9AE, 0x80000000
 
 
 class Script:
@@ -198,7 +200,10 @@ def main():
         s = Script(); fn(s)
         (OUT / f"{tag}.script").write_text(s.text())
         dumps = {f"w{i}": w for i, w in enumerate(WORDS)}
-        dumps.update({n: (sym[n], 4 if n != "pm_layer" else 4) for n in SYMS})
+        dumps.update({n: (sym[n], 4) for n in SYMS})
+        dumps.update({"layer": (LAYER_B, 1), "trk": (CUR_TRACK, 1), "ledcd": (LED_CD, 4 * 80), "ledbm": (LED_BM, 17)})
+        if tag == "save":
+            dumps["sram"] = (0x10000000, 0x100000)
         dumps.update({"ram0": ram0, "ram1": ram1, "cs0": cs0, "cs1": cs1})
         dump = ";".join(f"{ad:#x},{ln:#x}={OUT / f'{tag}_{k}.bin'}" for k, (ad, ln) in dumps.items())
         extra = f" --card-out {OUT / (tag + '.img')}" if tag == "save" else ""
@@ -226,13 +231,25 @@ def main():
 
     def state(tag):
         return dict(wa=u32(tag, "w0"), wm=u32(tag, "w1"), ma=u32(tag, "w2"), mm=u32(tag, "w3"), edit=u32(tag, "w4"),
-                    **{n: u32(tag, n) for n in SYMS if n != "pm_layer"}, pm_layer=u8(tag, "pm_layer", 0))
+                    **{n: u32(tag, n) for n in SYMS}, pm_layer=u8(tag, "layer", 0))
+
+    def led(tag):
+        """(countdown, bitmap bit) of the odd bit of the current track's key."""
+        t = u8(tag, "trk", 0)
+        if t is None:
+            return None, None
+        i = 8 * (5 + (t >> 2)) + 2 * (t & 3) + 1
+        cd = (OUT / f"{tag}_ledcd.bin").read_bytes()[4 * i:4 * i + 4]
+        bm = u8(tag, "ledbm", i >> 3)
+        return struct.unpack(">I", cd)[0], (bm >> (i & 7)) & 1 if bm is not None else None
 
     G0, M0 = 0x7F00, 0xFF00                     # the fixture's TRACK_MUTE_MASK=127, MIDI_TRACK_MUTE_MASK=255
     s = state("global")
     check(f"global: FUNC+T1 -> word {s['wa']:#x}, GLOBAL {s['pm_gl_a']:#x}, mirror {s['ma']:#x}, layer {s['pm_layer']!r}"
           if s["wa"] is not None else "global: no dump",
           s["wa"] == 0x7E00 and s["pm_gl_a"] == 0x7E00 and s["ma"] == 0x7E00 and s["pm_pa"] == 0 and s["pm_layer"] == 0)
+    cd, bit = led("global")
+    check(f"global: the current track key's second colour is not held (countdown {cd}, bit {bit})", cd == 0)
 
     s = state("layer")
     check(f"layer: two FUNC presses flip the layer: {s['pm_layer']!r}" if s["pm_layer"] is not None else "layer: no dump",
@@ -244,6 +261,8 @@ def main():
     check(f"pattern: FUNC+T8 in the PATTERN layer -> word {s['wa']:#x} = GLOBAL {s['pm_gl_a']:#x} | PATTERN {s['pm_pa']:#x}"
           if s["wa"] is not None else "pattern: no dump",
           s["wa"] == 0xFF00 and s["pm_gl_a"] == G0 and s["pm_pa"] == 0x8000 and s["pm_layer"] == 1)
+    cd, bit = led("pattern")
+    check(f"pattern: the current track key's second colour is held lit (countdown {cd}, bitmap bit {bit})", bool(cd) and bit == 1)
     check(f"pattern: the mirror keeps the GLOBAL layer: {s['ma']:#x}" if s["ma"] is not None else "pattern: no mirror",
           s["ma"] == G0)
     check(f"pattern: A01 track 8 record RAM {p0!r}, CS1 {c0!r}; bank edited flag {s['edit']!r}",
@@ -275,6 +294,28 @@ def main():
               rec is not None and rec & 1 == 1 and mask is not None and int(mask.group(1)) == G0 >> 8)
     else:
         check("save: no card image written", False)
+    cs1 = OUT / "save_sram.bin"
+    if img.is_file() and cs1.is_file():
+        d = OUT / "reboot"
+        d.mkdir()
+        (d / "q.script").write_text("2500 quit\n")
+        dumps = {f"w{i}": w for i, w in enumerate(WORDS)}
+        dumps.update({n: (sym[n], 4) for n in SYMS})
+        dumps.update({"layer": (LAYER_B, 1), "trk": (CUR_TRACK, 1), "ledcd": (LED_CD, 4 * 80), "ledbm": (LED_BM, 17)})
+        dump = ";".join(f"{ad:#x},{ln:#x}={OUT / f'reboot_{k}.bin'}" for k, (ad, ln) in dumps.items())
+        cmd = [str(EMU), "--image", str(OUT / "image.bin"), "--card", str(img), "--set", "OCTABAM", "--project", "SCN",
+               "--load-ms", "90000", "--mkii", "--cs1-in", str(cs1),
+               "--live-script", str(d / "q.script"), "--mem-dump", dump]
+        with open(d / "port.txt", "w") as f:
+            rc2 = subprocess.run(cmd, cwd=ROOT, stdout=f, stderr=subprocess.STDOUT).returncode
+        s = state("reboot")
+        cd, bit = led("reboot")
+        check(f"reboot: power cycle on the saved card and SRAM: layer {s['pm_layer']!r}, word {s['wa']!r}, "
+              f"GLOBAL {s['pm_gl_a']!r}, PATTERN {s['pm_pa']!r}, mirror {s['ma']!r}, key countdown {cd}",
+              rc2 == 0 and s["pm_layer"] == 1 and s["wa"] == 0xFF00 and s["pm_gl_a"] == G0 and s["pm_pa"] == 0x8000
+              and s["ma"] == G0 and bool(cd))
+    else:
+        check("reboot: no saved card or SRAM image", False)
     print(f"verify_pattern_mute: {fails} failure(s) -- {OUT}")
     return 1 if fails else 0
 

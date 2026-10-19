@@ -22,12 +22,14 @@ _MIRROR_A = (
     (0x4000ed60, 0), (0x400238f0, 0), (0x4003d314, 0), (0x4003d3d8, 1), (0x4003d400, 0),
     (0x4004034c, 1), (0x400403b2, 0), (0x40043e5a, 1), (0x40043e82, 0), (0x40045440, 0),
     (0x4005e432, 0), (0x4005e4b0, 0), (0x4006298c, 0), (0x40065534, 0), (0x40065574, 0),
-    (0x4007d1ec, 1), (0x4007d61c, 0), (0x4007d778, 1), (0x4007d81a, 2), (0x40088028, 0),
-    (0x40088084, 0), (0x400880de, 0),
+    (0x4007d1ec, 1), (0x4007d61c, 0), (0x4007d778, 1), (0x4007d81a, 2),
 )
+# the project load's settings parser: always the GLOBAL layer
+_LOAD_A = ((0x40088028, 0), (0x40088084, 0), (0x400880de, 0))
+_LOAD_M = ((0x4008813a, 0), (0x40088196, 0))
 _MIRROR_M = (
     (0x4000f256, 0), (0x4003d340, 0), (0x4004545c, 0), (0x4007d208, 0), (0x4007d670, 0),
-    (0x4007d6ec, 2), (0x4008813a, 0), (0x40088196, 0),
+    (0x4007d6ec, 2),
 )
 
 
@@ -53,6 +55,8 @@ MODULE = Module(
     detours=(
         _mirror(_MIRROR_A, "d4", "pm_mirror_a", "audio mute")
         + _mirror(_MIRROR_M, "d8", "pm_mirror_m", "MIDI mute")
+        + _mirror(_LOAD_A, "d4", "pm_load_a", "audio mute, project load")
+        + _mirror(_LOAD_M, "d8", "pm_load_m", "MIDI mute, project load")
         + (
             Detour(0x40089020, bytes.fromhex("71b98000000a"), "pm", "pm_save_a",
                    "project writer: TRACK_MUTE_MASK saves the GLOBAL layer", kind="jsr"),
@@ -60,6 +64,9 @@ MODULE = Module(
                    "project writer: MIDI_TRACK_MUTE_MASK saves the GLOBAL layer", kind="jsr"),
             Detour(0x40062142, bytes.fromhex("13c080000003"), "pm", "pm_pat_commit",
                    "UI pattern commit: load the PATTERN layer of the current pattern", kind="jsr"),
+            Detour(0x40052222, bytes.fromhex("4eb94007e940"), "pm", "pm_ui_tick",
+                   "UI loop: light the second colour of the current track key in the PATTERN layer",
+                   kind="jsr"),
         )
     ),
     gates=(Gate("tools/verify/verify_pattern_mute.py", venv=True, once=True),),

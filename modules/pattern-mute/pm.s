@@ -13,7 +13,8 @@
 | layer being edited, then republish the OR and store the GLOBAL layer in
 | the mirror, so power-off never folds pattern mutes into the global state.
 |
-| Layer select: a double press of FUNC (two presses within 300 ms).
+| Layer select: a double press of FUNC (two presses within 300 ms). The layer is
+| bit 0 of the battery SRAM byte 0x100b14dd, so it survives power-off.
 | Stock does nothing on a lone FUNC press. The layer applies to the next
 | edit, whichever stock path makes it (FUNC+track, MIXER trig keys, MIDI).
 |
@@ -29,11 +30,14 @@
         .text
         .globl  pm_mirror_a
         .globl  pm_mirror_m
+        .globl  pm_load_a
+        .globl  pm_load_m
         .globl  pm_save_a
         .globl  pm_save_m
         .globl  pm_pat_commit
         .globl  pm_func_press
-        .globl  pm_gl_a, pm_gl_m, pm_pa, pm_pm, pm_ef_a, pm_ef_m, pm_rdy_a, pm_rdy_m, pm_layer
+        .globl  pm_ui_tick
+        .globl  pm_gl_a, pm_gl_m, pm_pa, pm_pm, pm_ef_a, pm_ef_m, pm_rdy_a, pm_rdy_m
         .balign 2
 
         .equ    WORD_A,     0x80000008      | solo 0-7, mute 8-15, cue 16-23
@@ -53,6 +57,11 @@
         .equ    MUTE_VIEW,  0x4007c458      | the mute view's refresh, stock calls it after an edit
         .equ    FUNC_STOCK, 0x4004e954      | FUNC's stock press handler
         .equ    TOAST_TIME, 0x30
+        .equ    LAYER_B,    0x100b14dd      | battery SRAM: the layer (bit 0), a state-block byte stock never uses
+        .equ    SET_LED,    0x40013784      | set_led(id, ticks): ticks of 120 Hz
+        .equ    UI_NEXT,    0x4007e940      | the call the UI loop's hook site displaced
+        .equ    CUR_TRACK,  0x80000000      | current track 0-7 in the current mode
+        .equ    LED_TICKS,  6
         .equ    DTCN3,      0xfc07c00c      | DMA timer 3 count, 132 MHz free-run
         .equ    DOUBLE_WINDOW, 39600000     | 300 ms
 
@@ -60,7 +69,7 @@
 | stock's new value N. Out: the word holds the effective value, the mirror
 | holds N with the GLOBAL layer in its mute bits; d0-d3 and the CCR are
 | preserved except that the caller's own store has been replaced.
-        .macro  MIRROR_HOOK name, word, mirror, rdy, gl, pa, ef
+        .macro  MIRROR_HOOK name, word, mirror, rdy, gl, pa, ef, force=0
 \name:
         lea     -20(%sp),%sp
         movem.l %d0-%d4,(%sp)
@@ -85,12 +94,16 @@
         not.l   %d2                         | d2 = keep mask
         move.l  %d0,%d3
         and.l   %d1,%d3                     | d3 = new values of the changed bits
-        tst.b   pm_layer
+        .if     !\force
+        mvz.b   LAYER_B,%d1
+        btst    #0,%d1
         bne.s   2f
+        .endif
         move.l  \gl,%d1
         and.l   %d2,%d1
         or.l    %d3,%d1
         move.l  %d1,\gl
+        .if     !\force
         bra.s   3f
 2:      move.l  \pa,%d1
         and.l   %d2,%d1
@@ -99,6 +112,7 @@
         move.w  %d4,%sr
         bsr     pm_store_pat                | the pattern layer changed: write it back
         move.w  #0x2700,%sr
+        .endif
 3:      move.l  %d0,%d3
         and.l   #~MUTE_BITS,%d3             | solo and cue bits as stock wrote them
         move.l  \gl,%d1
@@ -119,6 +133,9 @@
 
         MIRROR_HOOK pm_mirror_a, WORD_A, MIR_A, pm_rdy_a, pm_gl_a, pm_pa, pm_ef_a
         MIRROR_HOOK pm_mirror_m, WORD_M, MIR_M, pm_rdy_m, pm_gl_m, pm_pm, pm_ef_m
+| The project load's own writes (the settings parser) always set the GLOBAL layer.
+        MIRROR_HOOK pm_load_a, WORD_A, MIR_A, pm_rdy_a, pm_gl_a, pm_pa, pm_ef_a, 1
+        MIRROR_HOOK pm_load_m, WORD_M, MIR_M, pm_rdy_m, pm_gl_m, pm_pm, pm_ef_m, 1
 
 | The project writer's two loads of the mute byte (mvz.b 0x8000000a,%d0 and
 | mvz.b 0x8000000e,%d0) save the GLOBAL layer in project.work.
@@ -293,9 +310,10 @@ pm_func_press:
         bhi.s   8f
         clr.l   %d1
         move.b  %d1,pm_tap                  | the pair is used up
-        mvz.b   pm_layer,%d0
+        mvz.b   LAYER_B,%d0
+        and.l   #1,%d0
         eori.l  #1,%d0
-        move.b  %d0,pm_layer
+        move.b  %d0,LAYER_B                 | battery SRAM: survives power-off
         lea     pm_txt_glob:l,%a0
         tst.l   %d0
         beq.s   1f
@@ -311,6 +329,37 @@ pm_func_press:
         move.b  %d1,pm_tap
 9:      jmp     FUNC_STOCK
 
+| The UI loop's call at 0x40052222 (jsr 0x4007e940, 60 Hz) reaches this
+| first. While the PATTERN layer is active it holds the second colour bit of
+| the current track's key lit, so the key shows both colours; stock lights
+| only the first for the selected track. set_led(id, ticks) is stock's own
+| LED API: the bit clears when its countdown ends, and the countdown here is
+| three UI ticks.
+pm_ui_tick:
+        lea     -16(%sp),%sp
+        movem.l %d0-%d1/%a0-%a1,(%sp)
+        mvz.b   LAYER_B,%d0
+        btst    #0,%d0
+        beq.s   9f
+        mvz.b   CUR_TRACK,%d0
+        and.l   #7,%d0
+        move.l  %d0,%d1
+        lsr.l   #2,%d1
+        addq.l  #5,%d1                      | track keys: rows 5 and 6
+        lsl.l   #3,%d1
+        and.l   #3,%d0
+        add.l   %d0,%d0
+        add.l   %d0,%d1
+        addq.l  #1,%d1                      | the odd bit
+        moveq   #LED_TICKS,%d0
+        move.l  %d0,-(%sp)
+        move.l  %d1,-(%sp)
+        jsr     SET_LED
+        addq.l  #8,%sp
+9:      movem.l (%sp),%d0-%d1/%a0-%a1
+        lea     16(%sp),%sp
+        jmp     UI_NEXT
+
         .data
         .balign 4
 pm_gl_a:        .long   0                   | GLOBAL layer, audio (bits 8-15)
@@ -321,7 +370,6 @@ pm_ef_a:        .long   0                   | the effective word published last
 pm_ef_m:        .long   0
 pm_rdy_a:       .byte   0
 pm_rdy_m:       .byte   0
-pm_layer:       .byte   0                   | 0 GLOBAL, 1 PATTERN
 pm_tap:         .byte   0                   | 1 when pm_tap_t holds a FUNC press
         .balign 4
 pm_tap_t:       .long   0
