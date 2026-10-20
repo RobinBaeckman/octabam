@@ -59,7 +59,7 @@
         .equ    TOAST_TIME, 0x30
         .equ    LAYER_B,    0x100b14dd      | battery SRAM: the layer (bit 0), a state-block byte stock never uses
         .equ    SET_LED,    0x40013784      | set_led(id, ticks): ticks of 120 Hz
-        .equ    UI_NEXT,    0x4007e940      | the call the UI loop's hook site displaced
+        .equ    UI_NEXT,    0x400316a0      | the call the UI loop's hook site displaced (the key-repeat tick)
         .equ    CUR_TRACK,  0x80000000      | current track 0-7 in the current mode
         .equ    LED_TICKS,  6
         .equ    DTCN3,      0xfc07c00c      | DMA timer 3 count, 132 MHz free-run
@@ -329,7 +329,7 @@ pm_func_press:
         move.b  %d1,pm_tap
 9:      jmp     FUNC_STOCK
 
-| The UI loop's call at 0x40052222 (jsr 0x4007e940, 60 Hz) reaches this
+| The UI loop's call at 0x40052228 (jsr 0x400316a0, the key-repeat tick, 60 Hz) reaches this
 | first. While the PATTERN layer is active it holds the second colour bit of
 | the current track's key lit, so the key shows both colours; stock lights
 | only the first for the selected track. set_led(id, ticks) is stock's own

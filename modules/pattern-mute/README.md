@@ -24,7 +24,7 @@ Stock keeps one mute state per project: bits 8-15 of `0x80000008` (audio tracks 
 | `0x40089020`, `0x4008908c` | the project writer's loads of the mute bytes | `pm_save_a`, `pm_save_m` return the GLOBAL layer |
 | `0x40062142` | the UI-side pattern commit, after a pattern change and after a project load | `pm_pat_commit` loads the PATTERN layer |
 | `0x40088028`, `0x40088084`, `0x400880de`, `0x4008813a`, `0x40088196` | the settings parser's mirror stores at project load | `pm_load_a`, `pm_load_m`: same as the mirror hooks, always the GLOBAL layer |
-| `0x40052222` | the UI loop's `jsr 0x4007e940` (60 Hz) | `pm_ui_tick`: while PATTERN, `set_led(id, 6)` for the odd (second colour) bit of the current track's key, then `jmp 0x4007e940` |
+| `0x40052228` | the UI loop's `jsr 0x400316a0`, the key-repeat tick (60 Hz) | `pm_ui_tick`: while PATTERN, `set_led(id, 6)` for the odd (second colour) bit of the current track's key, then `jmp 0x400316a0`. `0x40052222`, the call before it, is BLACKPYRAMIDS 303's |
 | `0x400bfc12`, `0x400c01f6` | FUNC's press record in the MKI and MKII key tables | `pm_func_press`; two presses within 300 ms of the free-run timer DTCN3 (`0xfc07c00c`, 132 MHz) flip the layer |
 
 **Layer storage.** Bit 0 of the byte at `0x100b14dd` in battery SRAM. It is the mirror of `0x80000011` in the 22-byte state block (`0x100b14cc`, restored to `0x80000000` at boot and by the new-project reset). Nothing in the image references `0x80000011` or `0x100b14dd` as an absolute address, the power-up sanitiser (`0x4000fe20`) and the reset (`0x40025a90`) skip it, and a `--cs1-in` boot returns a marker written there unchanged.

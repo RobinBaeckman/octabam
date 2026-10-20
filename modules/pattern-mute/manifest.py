@@ -64,7 +64,7 @@ MODULE = Module(
                    "project writer: MIDI_TRACK_MUTE_MASK saves the GLOBAL layer", kind="jsr"),
             Detour(0x40062142, bytes.fromhex("13c080000003"), "pm", "pm_pat_commit",
                    "UI pattern commit: load the PATTERN layer of the current pattern", kind="jsr"),
-            Detour(0x40052222, bytes.fromhex("4eb94007e940"), "pm", "pm_ui_tick",
+            Detour(0x40052228, bytes.fromhex("4eb9400316a0"), "pm", "pm_ui_tick",
                    "UI loop: light the second colour of the current track key in the PATTERN layer",
                    kind="jsr"),
         )
