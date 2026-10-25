@@ -122,5 +122,25 @@ class Outcomes(unittest.TestCase):
         self.assertIn("the core froze on it", t)
 
 
+class OmrLadder(unittest.TestCase):
+    def report(self, mask):
+        frames = [frame(mask, 7, 3, i & 1) for i in range(40)]
+        L, R = stream(frames)
+        ph, fr = decode.decode_stream(L, R)
+        return "\n".join(decode.summarise(ph, fr))
+
+    def test_a_working_switch_reads_p_and_y_rungs_with_their_addresses(self):
+        # switch stuck (1), P:0x2000 REAL, P:0x3000 REAL, P:0x3fe0 executes (2), Y:0x9fe0 REAL, Y:0xa000/0xbfe0 ABSENT (3)
+        mask = 1 | (1 << 2) | (1 << 4) | (2 << 6) | (1 << 8) | (3 << 10) | (3 << 12)
+        text = self.report(mask)
+        for want in ("ladder OMR:", "rung 0  OMR switch: REAL / the OMR bits stuck", "rung 3  P:0x03fe0: read/write and EXECUTE",
+                     "rung 4  Y:0x9FE0: REAL", "rung 5  Y:0xA000: ABSENT", "rung 6  Y:0xBFE0: ABSENT"):
+            self.assertIn(want, text)
+
+    def test_bits_that_did_not_stick_are_reported(self):
+        text = self.report(3 | (3 << 2))
+        self.assertIn("rung 0  OMR switch: ABSENT / the OMR bits did not stick", text)
+
+
 if __name__ == "__main__":
     unittest.main()

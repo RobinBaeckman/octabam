@@ -56,7 +56,9 @@ check("idle: GO 0, rung 0, an empty mask, in every frame", all((f["go"], f["k"],
 check("idle: the parity bit toggles every frame", all(fr[i]["parity"] != fr[i + 1]["parity"] for i in range(len(fr) - 1)))
 check("idle: the signs are the bits (samples are +-0.5)", {abs(s) for s in L + R} == {0x400000})
 
-for go, name, want in ((1, "LOW", int("01" * 7, 2)), (2, "WINDOW", int("10" * 7, 2))):
+# OMR: rung 0 the switch (1: the bits stuck), P:0x2000/0x3000 REAL, P:0x3fe0 executes, three Y rungs REAL
+OMR_WANT = (1 << 0) | (1 << 2) | (1 << 4) | (2 << 6) | (1 << 8) | (1 << 10) | (1 << 12)
+for go, name, want in ((1, "LOW", int("01" * 7, 2)), (2, "WINDOW", int("10" * 7, 2)), (3, "OMR", OMR_WANT)):
     L, R, (ph, fr) = run(go)
     steps = [(i, f["k"]) for i, f in enumerate(fr) if i == 0 or f["k"] != fr[i - 1]["k"]]
     check(f"{name}: seven rungs, then stops at 7", [k for _, k in steps] == list(range(8)), str(steps))
@@ -64,7 +66,7 @@ for go, name, want in ((1, "LOW", int("01" * 7, 2)), (2, "WINDOW", int("10" * 7,
     check(f"{name}: a rung every 64 frames", gaps == [64] * (len(steps) - 2), str(gaps))
     final = fr[-1]
     check(f"{name}: GO reads back as {go}", final["go"] == go)
-    check(f"{name}: under dsp_host every rung reads {'REAL' if go == 1 else 'read/write and execute'}",
+    check(f"{name}: under dsp_host every rung reads {'REAL' if go == 1 else 'the OMR bits stuck, P and Y real, the routine at P:0x3fe0 runs' if go == 3 else 'read/write and execute'}",
           final["mask"] == want, f"{final['mask']:014b}")
     check(f"{name}: frames keep arriving after the ladder", fr[-1]["parity"] != fr[-2]["parity"])
 

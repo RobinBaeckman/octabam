@@ -59,6 +59,39 @@ window, from `Claims.dsp_ranges` (`tools/remix/dsp_ranges.py`): BusVerb takes
 (`0x38000..0x40000`). The window is one memory for both cores, so both
 instances use the same words: run one core at a time.
 
+## The OMR ladder (GO = OMR)
+
+`docs/firmware/CHIP.md` lists the DSP56720's memory maps: OMR bit 7 (`MS`) and bits
+22:21 (`MSW1:MSW0`) move program space from 8K to 16K, 24K, 32K or 36K at Y's expense,
+and nothing in either payload writes them. GO = OMR sets `MS = MSW1 = MSW0 = 1` (Fig 3-3:
+16K program, 36K X, 40K Y) and tests what follows. Seven rungs, one every 64 frames:
+
+| rung | what | codes |
+|---|---|---|
+| 0 | read OMR, OR in `0x600080`, write it, read it back | 1 the bits stuck, 3 they did not |
+| 1, 2 | `P:0x2000`, `P:0x3000`: write the pattern, read it back, put the word back | 1 REAL, 3 ABSENT |
+| 3 | `P:0x3fe0`: as the WIN rungs, write a routine, call it, read x0 | 2 read/write and EXECUTE, 1 read/write only, 3 ABSENT |
+| 4 | `Y:0x9fe0`: a control below the 40K line (write, read back, put the word back) | 1 REAL, 3 ABSENT |
+| 5, 6 | `Y:0xa000`, `Y:0xbfe0`: above the 40K line | 1 REAL, 3 ABSENT |
+
+OMR is put back when the ladder finishes, when GO leaves OMR or goes OFF. Read the result
+as: rung 0 = 3 means the register does not take the bits (nothing else means anything);
+rungs 1..3 REAL / EXECUTE and rungs 5, 6 ABSENT is the Fig 3-3 map (8K more program words,
+`P:0x2000..0x3fff`, at the cost of `Y:0xa000..0xbfff`); rungs 1..3 ABSENT with rung 0 = 1
+means the switch is accepted and the memory does not follow; rungs 5, 6 REAL with
+rungs 1..3 REAL would be a map larger than Fig 3-3. A frozen core leaves its rung in the
+last frame; power-cycle.
+
+What the switch costs, if it works: `Y:0xa000..0xbfff` is the top half of the second FX2
+slot (`Y:0x8000..0xbfff`, 16,384 words). PLATE REV (extent `0x37ff`) and DARK REV (`0x3da2`)
+write above `Y:0xa000` when they run on a track with that slot, and the lost writes would
+corrupt their audio; SPRING REV (`0xfff`), CHORUS, COMB FILTER, SPATIALIZER and FLANGER stay
+below it. Run the ladder with no reverb on the second FX2 slot of the core.
+
+The bootstrap drops upload records addressed to P above `0x1fff` unless OMR is already
+switched, so code for `P:0x2000..0x3fff` would be staged in X and copied after the
+switch; this probe tests only whether the memory is there.
+
 Under `dsp_host` every rung passes (the emulator maps P at all of them), so
 `tools/verify/verify_pextprobe.py` proves the instrument, the decoder and the
 routine a WIN rung writes and calls, not the hardware's answer;
@@ -79,7 +112,8 @@ absolute P stores and `jsr` to an address).
    for a `.wav`). Expected before GO: the marker in every frame, GO 0, next rung 0.
    No marker: the probe is not on that pair.
 5. With the capture running: set GO to LOW on one track, wait 10 s; set it back
-   to OFF; then WIN on the same track; then OFF; then the other track the same way.
+   to OFF; then WIN on the same track; then OFF; then OMR (no reverb on the second FX2
+   slot of that core, see above), wait 10 s, OFF; then the other track the same way.
 6. If frames stop arriving, the core froze on the rung the decoder names:
    power-cycle the unit (no reflash).
 

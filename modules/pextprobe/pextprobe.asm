@@ -7,8 +7,8 @@
 ; Insert contract: frames in place at x:(r0) / x:(r0+n0), knobs from r6,
 ; state in this instance's r7 block. No bus, no buffers.
 ;
-; GO is a select: 0 OFF (the idle signature), 1 LOW, 2 WINDOW. Seven rungs, one
-; every 64 frames after 64 idle ones.
+; GO is a select: 0 OFF (the idle signature), 1 LOW, 2 WINDOW, 3 OMR. Seven rungs,
+; one every 64 frames after 64 idle ones.
 ;
 ; LOW  rung 0 is a CONTROL at the spare base P:0x1fe0 (known real: write a
 ;      pattern, read it back; if that is not REAL the P store does not work and
@@ -29,6 +29,16 @@
 ;      leaves its rung index in the last frame. Run one core at a time: both
 ;      cores' instances use the same words.
 ;
+; OMR  rung 0 sets OMR bits 7 and 22:21 (MS, MSW1, MSW0: CHIP.md Fig 3-3, 16K
+;      program, 36K X, 40K Y) and reads OMR back: code 1 if the bits stuck, 3 if
+;      not. Rungs 1..3 are P:0x2000, 0x3000 and 0x3fe0: write PATTERN, read it
+;      back; the last also writes a routine, calls it and reads x0 (codes as
+;      WINDOW). Rungs 4..6 are Y:0x9fe0 (a control below the 40K line), Y:0xa000
+;      and Y:0xbfe0 (above it): write PATTERN, read it back, put the word back
+;      (1 REAL, 3 ABSENT). OMR is put back when the ladder finishes, when GO
+;      leaves OMR or goes OFF. Run it with no reverb on the second FX2 slot of
+;      the core: Y:0xa000..0xbfff is that slot's top half.
+;
 ; ---- what each frame carries (read by modules/pextprobe/decode.py) -----------
 ; Thirty-two bits, one per sample slot: L sample j = bit j, R sample j = bit
 ; 16 + j; a one is +0.5 (0x400000), a zero -0.5 (0xc00000). Only the sign is
@@ -42,7 +52,7 @@
 ; ---- r7 slots ---------------------------------------------------------------
 ;   $10 k, the next rung   $11 frames until it runs   $12 the mask
 ;   $13 the frame counter  $14 GO   $15 the L word   $16 the R word
-;   $17 the word a LOW rung found
+;   $17 the word a rung found   $18 OMR before the OMR ladder   $19 1 while OMR is changed
 ; ---------------------------------------------------------------------------
 
 init:
@@ -52,6 +62,8 @@ init:
         move    a,x:(r7+$13)
         move    a,x:(r7+$14)
         move    a,x:(r7+$17)
+        move    a,x:(r7+$18)
+        move    a,x:(r7+$19)
         move    #>64,x0
         move    x0,x:(r7+$11)            ; 64 frames of idle signature before the first rung
         rts
@@ -67,6 +79,11 @@ proc:
         and     #>$7f0000,a
         asr     #$10,a,a
         move    a1,x:(r7+$14)
+        cmp     #>$3,a
+        beq     px_kp
+        bsr     px_omrback               ; GO is not OMR: put OMR back if the OMR ladder changed it
+px_kp:
+        move    x:(r7+$14),a
         tst     a
         bne     px_go
         clr     a                        ; GO off: the ladder starts over at the next GO
@@ -78,7 +95,10 @@ proc:
 px_go:
         move    x:(r7+$10),a
         cmp     #>$7,a
-        bge     px_pub                   ; finished
+        blt     px_run
+        bsr     px_omrback               ; finished: OMR back
+        bra     px_pub
+px_run:
         move    x:(r7+$11),a
         sub     #>$1,a
         move    a1,x:(r7+$11)
@@ -88,6 +108,8 @@ px_go:
         move    x:(r7+$14),a
         cmp     #>$2,a
         beq     px_win
+        cmp     #>$3,a
+        beq     px_omd
         move    x:(r7+$10),a
         tst     a
         beq     pxl0
@@ -120,6 +142,23 @@ px_win:
         beq     pxw5
         cmp     #>$6,a
         beq     pxw6
+        bra     px_pub
+px_omd:
+        move    x:(r7+$10),a
+        tst     a
+        beq     pxo0
+        cmp     #>$1,a
+        beq     pxo1
+        cmp     #>$2,a
+        beq     pxo2
+        cmp     #>$3,a
+        beq     pxo3
+        cmp     #>$4,a
+        beq     pxo4
+        cmp     #>$5,a
+        beq     pxo5
+        cmp     #>$6,a
+        beq     pxo6
         bra     px_pub
 
 ; ---- LOW rung 0: the control at P:0x1fe0 -------------------------------------
@@ -778,6 +817,238 @@ pxwd6:
         add     #>$1,a
         move    a1,x:(r7+$10)
         bra     px_pub
+
+; ---- OMR rung 0: set MS, MSW1, MSW0 ------------------------------------------
+pxo0:
+        move    omr,x0
+        move    x0,x:(r7+$18)
+        move    x0,a
+        or      #>$600080,a
+        move    a1,x0
+        move    x0,omr
+        move    #>$1,x0
+        move    x0,x:(r7+$19)            ; OMR is changed: px_omrback puts it back
+        move    omr,x0
+        move    x0,a
+        and     #>$600080,a
+        cmp     #>$600080,a
+        bne     pxob0
+        move    #>$1,x0
+        bra     pxod0
+pxob0:
+        move    #>$3,x0
+pxod0:
+        move    x:(r7+$12),a
+        or      x0,a
+        move    a1,x:(r7+$12)
+        move    x:(r7+$10),a
+        add     #>$1,a
+        move    a1,x:(r7+$10)
+        bra     px_pub
+
+; ---- OMR rung 1: P:0x2000 ---------------------------------------------------------
+pxo1:
+        move    #>$123456,x0
+        move    #>$2000,r1
+        move    p:(r1),a
+        move    a1,x:(r7+$17)            ; the word there now
+        move    x0,p:(r1)
+        move    #>$2000,r5
+        move    p:(r5),a
+        move    a1,x1
+        move    x1,a
+        cmp     x0,a
+        bne     pxob1
+        move    x:(r7+$17),x0
+        move    x0,p:(r1)                ; the old word back
+        move    #>$4,x0
+        bra     pxod1
+pxob1:
+        move    #>$c,x0
+pxod1:
+        move    x:(r7+$12),a
+        or      x0,a
+        move    a1,x:(r7+$12)
+        move    x:(r7+$10),a
+        add     #>$1,a
+        move    a1,x:(r7+$10)
+        bra     px_pub
+
+; ---- OMR rung 2: P:0x3000 ---------------------------------------------------------
+pxo2:
+        move    #>$123456,x0
+        move    #>$3000,r1
+        move    p:(r1),a
+        move    a1,x:(r7+$17)            ; the word there now
+        move    x0,p:(r1)
+        move    #>$3000,r5
+        move    p:(r5),a
+        move    a1,x1
+        move    x1,a
+        cmp     x0,a
+        bne     pxob2
+        move    x:(r7+$17),x0
+        move    x0,p:(r1)                ; the old word back
+        move    #>$10,x0
+        bra     pxod2
+pxob2:
+        move    #>$30,x0
+pxod2:
+        move    x:(r7+$12),a
+        or      x0,a
+        move    a1,x:(r7+$12)
+        move    x:(r7+$10),a
+        add     #>$1,a
+        move    a1,x:(r7+$10)
+        bra     px_pub
+
+; ---- OMR rung 3: P:0x3fe0 ---------------------------------------------------------
+pxo3:
+        move    #>$123456,x0
+        move    #>$3fe0,r1
+        move    p:(r1),a
+        move    a1,x:(r7+$17)            ; the word there now
+        move    x0,p:(r1)
+        move    #>$3fe0,r5
+        move    p:(r5),a
+        move    a1,x1
+        move    x1,a
+        cmp     x0,a
+        bne     pxob3
+        move    #>$44f400,x0             ; move #>$a5a5a5,x0
+        move    #>$3fe0,r1
+        move    x0,p:(r1)+
+        move    #>$a5a5a5,x0
+        move    x0,p:(r1)+
+        move    #>$00000c,x0             ; rts
+        move    x0,p:(r1)
+        clr     a
+        move    a,x0
+        move    #>$3fe0,r5
+        jsr     (r5)
+        move    x0,a
+        move    a1,x1
+        move    x1,a
+        move    #>$a5a5a5,x0
+        cmp     x0,a
+        bne     pxoe3
+        move    #>$80,x0
+        bra     pxoz3
+pxoe3:
+        move    #>$40,x0
+pxoz3:
+        move    x0,y1                    ; the code, while the three words are zeroed
+        clr     a
+        move    a,x0
+        move    #>$3fe0,r1
+        move    x0,p:(r1)+
+        move    x0,p:(r1)+
+        move    x0,p:(r1)
+        move    y1,x0
+        bra     pxod3
+pxob3:
+        move    #>$c0,x0
+pxod3:
+        move    x:(r7+$12),a
+        or      x0,a
+        move    a1,x:(r7+$12)
+        move    x:(r7+$10),a
+        add     #>$1,a
+        move    a1,x:(r7+$10)
+        bra     px_pub
+
+; ---- OMR rung 4: Y:0x9fe0 ---------------------------------------------------------
+pxo4:
+        move    #>$9fe0,r1
+        move    y:(r1),a
+        move    a1,x:(r7+$17)            ; the word there now
+        move    #>$123456,x0
+        move    x0,y:(r1)
+        move    y:(r1),a
+        move    a1,x1
+        move    x1,a
+        cmp     x0,a
+        bne     pxob4
+        move    x:(r7+$17),x0
+        move    x0,y:(r1)                ; the old word back
+        move    #>$100,x0
+        bra     pxod4
+pxob4:
+        move    #>$300,x0
+pxod4:
+        move    x:(r7+$12),a
+        or      x0,a
+        move    a1,x:(r7+$12)
+        move    x:(r7+$10),a
+        add     #>$1,a
+        move    a1,x:(r7+$10)
+        bra     px_pub
+
+; ---- OMR rung 5: Y:0xa000 ---------------------------------------------------------
+pxo5:
+        move    #>$a000,r1
+        move    y:(r1),a
+        move    a1,x:(r7+$17)            ; the word there now
+        move    #>$123456,x0
+        move    x0,y:(r1)
+        move    y:(r1),a
+        move    a1,x1
+        move    x1,a
+        cmp     x0,a
+        bne     pxob5
+        move    x:(r7+$17),x0
+        move    x0,y:(r1)                ; the old word back
+        move    #>$400,x0
+        bra     pxod5
+pxob5:
+        move    #>$c00,x0
+pxod5:
+        move    x:(r7+$12),a
+        or      x0,a
+        move    a1,x:(r7+$12)
+        move    x:(r7+$10),a
+        add     #>$1,a
+        move    a1,x:(r7+$10)
+        bra     px_pub
+
+; ---- OMR rung 6: Y:0xbfe0 ---------------------------------------------------------
+pxo6:
+        move    #>$bfe0,r1
+        move    y:(r1),a
+        move    a1,x:(r7+$17)            ; the word there now
+        move    #>$123456,x0
+        move    x0,y:(r1)
+        move    y:(r1),a
+        move    a1,x1
+        move    x1,a
+        cmp     x0,a
+        bne     pxob6
+        move    x:(r7+$17),x0
+        move    x0,y:(r1)                ; the old word back
+        move    #>$1000,x0
+        bra     pxod6
+pxob6:
+        move    #>$3000,x0
+pxod6:
+        move    x:(r7+$12),a
+        or      x0,a
+        move    a1,x:(r7+$12)
+        move    x:(r7+$10),a
+        add     #>$1,a
+        move    a1,x:(r7+$10)
+        bra     px_pub
+
+; ---- OMR back, if the ladder changed it ----------------------------------------
+px_omrback:
+        move    x:(r7+$19),a
+        tst     a
+        beq     px_omrx
+        move    x:(r7+$18),x0
+        move    x0,omr
+        clr     a
+        move    a,x:(r7+$19)
+px_omrx:
+        rts
 
 ; ---- publish: the 32 bits into the frame --------------------------------------
 px_pub:

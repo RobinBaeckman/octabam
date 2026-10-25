@@ -30,8 +30,8 @@ MODULE = Module(
         build_tag=False,
     ),
     params=(
-        Param(b"GO", 0, 3, active=True, formatter=Formatter.STEPPED, labels=("OFF", "LOW", "WIN"),
-              doc="OFF idle; LOW P:0x1fe0 control, P:0x2000..0x3800; WIN shared window; a rung per 64 frames"),
+        Param(b"GO", 0, 4, active=True, formatter=Formatter.STEPPED, labels=("OFF", "LOW", "WIN", "OMR"),
+              doc="OFF; LOW P:0x2000..0x3800; WIN shared window; OMR 16K program map; a rung per 64 frames"),
         _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK, _BLANK,
     ),
     dsp=DspSection(

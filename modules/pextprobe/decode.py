@@ -26,6 +26,8 @@ LADDERS = {
     2: ("WINDOW", [0x30100, 0x35900, 0x36300, 0x36800, 0x37000, 0x37800, 0x37E00],
         {0: "untested", 1: "read/write only (the routine returned the wrong x0)", 2: "read/write and EXECUTE",
          3: "ABSENT (read/write failed)"}),
+    3: ("OMR", ["OMR switch", 0x2000, 0x3000, 0x3FE0, "Y:0x9FE0", "Y:0xA000", "Y:0xBFE0"],
+        {0: "untested", 1: "REAL / the OMR bits stuck", 2: "read/write and EXECUTE", 3: "ABSENT / the OMR bits did not stick"}),
 }
 
 
@@ -56,6 +58,11 @@ def decode_stream(L, R, invert=False):
         out.append(dict(mask=lw & 0x3FFF, k=((lw >> 14) & 3) | ((rw & 1) << 2), go=(rw >> 1) & 3,
                         parity=(rw >> 3) & 1, marker=(rw >> 8) & 0xFF))
     return ph, out
+
+
+def where(a):
+    """A rung's address for the report: a P address, or the text a ladder gives it (Y:0x..., the OMR switch)."""
+    return f"P:0x{a:05x}" if isinstance(a, int) else a
 
 
 def summarise(phase, frames):
@@ -95,14 +102,14 @@ def summarise(phase, frames):
     lines.append(f"ladder {name}:")
     for k in range(7):
         c = (f["mask"] >> (2 * k)) & 3
-        lines.append(f"  rung {k}  P:0x{addrs[k]:05x}: {codes[c]}")
+        lines.append(f"  rung {k}  {where(addrs[k])}: {codes[c]}")
     if f["k"] < 7:
-        lines.append(f"ladder not finished: rung {f['k']} (P:0x{addrs[f['k']]:05x}) never completed"
+        lines.append(f"ladder not finished: rung {f['k']} ({where(addrs[f['k']])}) never completed"
                      f" ({'the core froze on it' if stopped else 'still running'})")
     else:
         real = [k for k in range(7) if (f["mask"] >> (2 * k)) & 3 in ((1,) if name == "LOW" else (1, 2))]
         lines.append(f"{name}: {len(real)} of 7 rungs read and wrote"
-                     + (f"; the highest is P:0x{addrs[max(real)]:05x}" if real else ""))
+                     + (f"; the highest is {where(addrs[max(real)])}" if real else ""))
     return lines
 
 
