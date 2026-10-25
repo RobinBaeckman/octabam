@@ -32,9 +32,7 @@ REMIX = Remix(
              "DELAY",       # the stock DELAY keeps its chooser row: T8 hosts it
              "FX2 LOCK") + CORE,   # the chooser cannot change any track's FX2
     fallback="SEND",
-    window=(("DELAY SERVER:B", 0x35800), ("SEND", 0x35df0), ("SEND:B", 0x35f00),
-            ("MODULATION", 0x36200), ("SPECTRUM", 0x36820), ("CHARACTER", 0x36da0),
-            ("REVERB SERVER", 0x371a0), ("LOAD METER", 0x37b00), ("LOAD METER:B", 0x37bc0)),
+    window_auto=True,
     hidden=("REVERB SERVER", "DELAY SERVER"),
     host_slots=(("DELAY SERVER", 2), ("REVERB SERVER", 2)),
     locked=("REVERB SERVER", "DELAY SERVER"),

@@ -143,12 +143,60 @@ _BOUND = remix_registry.bound(REMIX)
 # and both payloads' dispatch entries for its id point at it.
 WINDOW = dict(REMIX.window)
 WINDOW_KEYS = {_k.removesuffix(":B") for _k in WINDOW}   # modules with window code; "KEY:B" is payload B's own copy
+WINDOW_AUTO = REMIX.window_auto     # every eligible DSP module is placed in the window at an address the build chooses
+WINDOW_ON = bool(WINDOW) or WINDOW_AUTO
+WINDOW_TOP = 0x37F00                # the core 1 -> core 0 mailbox starts here; payload B's loop zeroes it up
 for _wk, _wa in WINDOW.items():
     if _wk.removesuffix(":B") not in REMIX.modules:
         sys.exit(f"Remix.window names {_wk!r}, which the remix does not carry")
     if not 0x30000 <= _wa < 0x40000:
         sys.exit(f"Remix.window: {_wk} at P:0x{_wa:05x} is outside the shared window "
                  f"P:0x30000..0x3ffff")
+
+
+def _window_eligible(dsp):
+    """A DSP section the window can hold: it has code, and no tail, pins or second table."""
+    return dsp is not None and bool(dsp.asm) and not dsp.tail and not dsp.pins and not dsp.ptable2
+
+
+def _window_owners():
+    """(start, end, owner) of every shared-window range a module declares."""
+    from remix import dsp_ranges as _dr
+    return [(o.start, o.end, o.owner, o.what) for o in _dr.owners(remix_registry.selected(REMIX))
+            if o.domain == "shared"]
+
+
+def _window_bound():
+    """The lowest address window code may take: payload A's boot zero loop stops here, so every
+    non-window owner of the window must end at or below it. The bus scratch is exempt (the servers'
+    position-0 housekeeping clears the rotating buffers every frame; their warm-up zeroes the rest)."""
+    z = 0x30000
+    for s_, e_, own, _w in _window_owners():
+        if own not in WINDOW_KEYS and own != "the bus" and s_ < WINDOW_TOP:
+            z = max(z, min(e_, WINDOW_TOP))
+    return z
+
+
+_AUTO_AT = {}                       # module key -> the address its payload A copy took
+_AUTO_TAKEN = []                    # (start, end, what) of the auto-placed copies
+
+def _window_alloc(length, what, records):
+    """First fit above the bound, clear of every declared owner, pinned entry and earlier copy."""
+    spans = [(s_, e_) for s_, e_, _o, _w in _window_owners()] + [(a_, a_ + len(w_)) for a_, w_ in
+             records.values()] + [(a_, e_) for a_, e_, _w in _AUTO_TAKEN]
+    cur = (_window_bound() + 15) & ~15
+    for s_, e_ in sorted(spans):
+        if e_ <= cur or s_ >= cur + length:
+            continue
+        cur = (e_ + 15) & ~15
+    if cur + length > WINDOW_TOP:
+        free = WINDOW_TOP - cur
+        sys.exit(f"{what}: {length} words do not fit in the shared window (P:0x{cur:05x}..0x{WINDOW_TOP:05x}, "
+                 f"{max(free, 0)} words left above the zero-loop bound 0x{_window_bound():05x})")
+    _AUTO_TAKEN.append((cur, cur + length, what))
+    return cur
+
+
 for _v in ("NOTEMPO", "TEMPOCAVE"):
     if os.environ.get(_v):
         sys.exit(f"{_v} is TEMPO SYNC's CAVE setting since 11 Oct 2026: "
@@ -1466,11 +1514,11 @@ def main():
     # and its packed stage, one region per payload, last in the stack.
     _tail = _tail_plan()
     for _tag, _va, _ln in PAYLOADS:
-        if _tag in _tail or (WINDOW and _tag == "A"):
+        if _tag in _tail or (WINDOW_ON and _tag == "A"):
             _regions.append((TAIL_REGION % _tag,
-                             2 * (_ln + (WINDOW_SLACK if WINDOW and _tag == "A" else TAIL_SLACK)), 16))
-    if (_tail or WINDOW) and not _dram:
-        sys.exit(f"{', '.join(sorted({k for v in _tail.values() for k in v} | set(WINDOW)))}: "
+                             2 * (_ln + (WINDOW_SLACK if WINDOW_ON and _tag == "A" else TAIL_SLACK)), 16))
+    if (_tail or WINDOW_ON) and not _dram:
+        sys.exit(f"{', '.join(sorted({k for v in _tail.values() for k in v} | set(WINDOW) | ({'window_auto'} if WINDOW_AUTO else set())))}: "
                  f"placed at the payload's tail or in the shared window, which rides octabam's "
                  f"loader, and this remix links no DRAM platform")
     _fixed = [(f"{_k} {_r.label}", _r.at, _r.end) for _k in REMIX.modules
@@ -1505,7 +1553,7 @@ def main():
             [(_m.key, _u) for _m, _u in _dram], [], pathlib.Path("out/platform"),
             reserve=reserve, defsyms=_d, unit_defs=_ud, includes=_incs,
             regions=_regions, early=[_u for _m, _u in _early], fixed=_fixed,
-            preboot_slots=1 if (_tail or WINDOW) else 0, **kw)
+            preboot_slots=1 if (_tail or WINDOW_ON) else 0, **kw)
 
     _FIT = ("does not fit its arena reserve", "past the reserve's ceiling", "above DRAM region")
 
@@ -2495,7 +2543,7 @@ mkgo:""",
                 sys.exit(f"payload {tag}: P:0x{_pa:05x} ({_what}) holds "
                          f"{rdw_p_at(_pa):06x}, not stock {_stock:06x}; refusing")
             wrw_p_at(_pa, _new)
-        if tag == "A" and WINDOW:
+        if tag == "A" and WINDOW_ON:
             # ⚠️ PAYLOAD A'S BOOT CODE ZEROES THE WINDOW AFTER THE UPLOAD. P:0x40-0x49 is one
             # `do` over y:(r4)+ (Y:0x4000..0xBFFF) and y:(r5)+ (Y:0x30000..0x37FFF), 0x8000 words each,
             # so a record of the upload placed in the window is wiped before the effect first runs
@@ -2503,14 +2551,14 @@ mkgo:""",
             # lowest window address, which leaves the words above it, and the same number at
             # the end of Y:0x4000..0xBFFF, unzeroed on core 0. Payload B's loop (widened above)
             # clears 0x37F00 up, so the mailbox and the tail of A's half stay zeroed.
-            _zn = min(WINDOW.values()) - 0x30000
+            _zn = min([_window_bound()] * WINDOW_AUTO + list(WINDOW.values()) + [WINDOW_TOP]) - 0x30000
             _zl = 0x30000 + _zn
             from remix import dsp_ranges as _dr2
             for _o in _dr2.owners(remix_registry.selected(REMIX)):
                 # the bus scratch is exempt: the servers' position-0 housekeeping clears the rotating
                 # buffers every frame (reverb_server.asm, delay_server.asm), and their warm-up zeroes the rest
                 if (_o.domain == "shared" and _o.owner not in WINDOW_KEYS and _o.owner != "the bus"
-                        and _o.end > _zl and _o.start < 0x37F00):
+                        and _o.end > _zl and _o.start < WINDOW_TOP):
                     sys.exit(f"Remix.window: payload A's boot zero loop would stop at "
                              f"0x{_zl:05x}, and {_o.owner}'s {_o.what} "
                              f"(0x{_o.start:05x}..0x{_o.end:05x}) needs zeroing")
@@ -2570,7 +2618,8 @@ mkgo:""",
             # payload's code in a record of its own (_tail_plan).
             _need = [m for m in ([m for m in _SEL if m.dsp is not None]
                                  + [_MODS[k] for k in HOOKED])
-                     if not m.dsp.pins and not m.dsp.tail and m.key not in WINDOW_KEYS]
+                     if not m.dsp.pins and not m.dsp.tail and m.key not in WINDOW_KEYS
+                     and not (WINDOW_AUTO and _window_eligible(m.dsp))]
             if _need:
                 sys.exit(f"payload {tag}: nothing is harvested, so there is "
                          f"nowhere to place "
@@ -3161,7 +3210,9 @@ hostquit:
             return "\n".join(out), n
 
         for name, src in plan:
-            if name in WINDOW_KEYS and (name in WINDOW or tag == "B"):
+            _auto = (WINDOW_AUTO and name not in WINDOW_KEYS and name in remix_modules()
+                     and _window_eligible(remix_modules()[name].dsp))
+            if _auto or (name in WINDOW_KEYS and (name in WINDOW or tag == "B")):
                 # ---- IN THE SHARED WINDOW (schema.Remix.window): assembled once at its
                 # address, table behind the code, a record of payload A's upload; this
                 # payload's dispatch entries point at it. Takes no harvested words.
@@ -3170,7 +3221,7 @@ hostquit:
                 # a module whose two payloads assemble to different words (a hooked one: the stock
                 # addresses it replays into differ; a server: per-core code) has "KEY:B" for payload B's copy
                 _wk = name + ":B" if (tag == "B" and name + ":B" in WINDOW) else name
-                _wa = WINDOW[_wk]
+                _wa = None if _auto else WINDOW[_wk]
                 if _wd.tail or _wd.ptable2 or _wd.pins:
                     sys.exit(f"{name}: placed in the shared window, so it has no tail, "
                              f"second table or pins")
@@ -3182,15 +3233,32 @@ hostquit:
                 _wl = ((LFO01 + LFOTAB) if LFO01_MARK in src else LFOTAB) if "$facade" in src else []
                 if _wl and src.count("$facade") != 1:
                     sys.exit(f"payload {tag}: {name} has multiple $facade LFOTAB literals -- expected exactly one")
-                _ws = src
-                if _wt or _wl:
-                    _w0, _ = assemble_syms(src.replace(PTABLE_MARK, "$0").replace("$facade", "$0"), _wa, label=name)
-                    _tb = _wa + len(_w0)
-                    _ws = src.replace("$facade", f"${_tb:x}").replace(PTABLE_MARK, f"${_tb + len(_wl):x}")
-                _ww, _wsyms = assemble_syms(_ws, _wa, label=name)
-                if (_wt or _wl) and len(_ww) != len(_w0):
-                    sys.exit(f"{name}: the code changed length with its table's address")
-                _ww = list(_ww) + _wl + _wt
+                def _build_at(addr, src=src, name=name, _wt=_wt, _wl=_wl):
+                    ws, w0 = src, None
+                    if _wt or _wl:
+                        w0, _ = assemble_syms(src.replace(PTABLE_MARK, "$0").replace("$facade", "$0"), addr, label=name)
+                        tb = addr + len(w0)
+                        ws = src.replace("$facade", f"${tb:x}").replace(PTABLE_MARK, f"${tb + len(_wl):x}")
+                    ww, wsyms = assemble_syms(ws, addr, label=name)
+                    if w0 is not None and len(ww) != len(w0):
+                        sys.exit(f"{name}: the code changed length with its table's address")
+                    return list(ww) + _wl + _wt, wsyms
+
+                if _auto and name in _AUTO_AT:
+                    # payload B: payload A's copy serves it if it assembles to the same words there,
+                    # else it takes a copy of its own (a hooked module, a per-core server)
+                    _wa, _wk = _AUTO_AT[name], name
+                    _ww, _wsyms = _build_at(_wa)
+                    if window_records.get(name, (None, None))[1] != _ww:
+                        _wk = name + ":B"
+                        _wa = _window_alloc(len(_ww), f"{name} (payload {tag})", window_records)
+                        _ww, _wsyms = _build_at(_wa)
+                elif _auto:
+                    _wa = _window_alloc(len(_build_at(_window_bound())[0]), name, window_records)
+                    _AUTO_AT[name] = _wa
+                    _ww, _wsyms = _build_at(_wa)
+                else:
+                    _ww, _wsyms = _build_at(_wa)
                 if _wk in window_records and window_records[_wk][1] != _ww:
                     sys.exit(f"{name}: placed in the shared window as one copy, but its payload "
                              f"A and payload B sources assemble to different words")
@@ -3850,7 +3918,7 @@ hostquit:
             reserve=_reserve, defsyms=_pdefs, unit_defs=_unit_defs,
             includes={_u.label: _u.include(_sel, REMIX) for _m, _u in _dram + _early if _u.include is not None},
             regions=_regions, patch=_rt_patch, early=[_u for _m, _u in _early], fixed=_fixed,
-            **({"preboot_slots": 1} if (_tail or WINDOW) else {}))
+            **({"preboot_slots": 1} if (_tail or WINDOW_ON) else {}))
         if (_psyms2, _pgsyms2, _punits2) != (_psyms, _pgsyms, _punits):
             # the loader is not compared: its tail (_end & co) moves with
             # the packed payload the patch changes, by design

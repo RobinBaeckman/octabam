@@ -2038,8 +2038,17 @@ class Remix:
     # Core 1 running code that sits in payload A's half is measured on the unit
     # (modules/pextprobe). The build refuses an address inside another owner's range
     # (tools/remix/dsp_ranges.py) or a module whose two payload sources assemble differently.
-    # A module placed this way has no hooks, no LFO or second table, and no tail.
+    # A module placed this way has no tail, pins or second table. A key ending ":B" is payload B's
+    # own copy, for a module whose two payloads assemble to different words (a server, a hooked
+    # module); its hooks reach the window by a 24-bit `jsr`.
     window: tuple[tuple[str, int], ...] = ()
+    # WINDOW PLACEMENT BY THE BUILD: every DSP module with code and no tail, pins or second table
+    # runs from the shared window at an address the build chooses (first fit above the highest end
+    # of a non-window owner, clear of every declared range), nothing is harvested, and every stock
+    # effect stays untouched. Payload A's boot zero loop stops at that bound; the servers and every
+    # effect clear their own memory (verify_dirty_state renders over garbage fills). `window` pins
+    # a module at an address of its own.
+    window_auto: bool = False
     # THE HOST PAGE DRAWS ITS FIRST SLOTS ONLY (26 Sep 2026, Sam: "want
     # all the tracks to look the same"): (key, n) pairs. The hidden
     # module's page draws slots 0..n-1 under their manifest names (the rig:

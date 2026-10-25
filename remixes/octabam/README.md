@@ -9,8 +9,8 @@ MODULATION, TRANSIENT and GATE VERB. It has no bus and no SEND. See
 
 All 14 stock effects stay in the menus. SPECTRUM, CHARACTER, MODULATION and
 TRANSIENT are on FX1 and FX2; GATE VERB is on FX2. Their DSP code runs from the
-shared P window (`P:0x30000..0x3ffff`) beside the stock effects, one copy
-each for both cores, on free effect ids.
+shared P window (`P:0x30000..0x3ffff`) beside the stock effects, at addresses the build
+chooses (`Remix.window_auto`), on free effect ids.
 
 | effect | FX1 | FX2 | id | what it is | module |
 |---|---|---|---|---|---|

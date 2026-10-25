@@ -62,7 +62,7 @@ listed give up their DSP code to the bus.
 | | stock | octabam-bus |
 |---|---|---|
 | sample and recorder memory | 14,602 pages | 12,895 pages (the platform reserve) |
-| DSP code in the window | | the servers, SEND, SPECTRUM, CHARACTER, MODULATION and LOAD METER (P:0x35800..0x37c67) |
+| DSP code in the window | | the servers, SEND, SPECTRUM, CHARACTER, MODULATION and LOAD METER (P:0x35800..0x37b69 in this build; the build chooses the addresses) |
 
 ## Where it has run
 
