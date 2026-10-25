@@ -55,8 +55,7 @@ MODULE = Module(
     menu=MenuEntry(
         # No free custom FX2 id left in-tree (SHATTER=0x0a, …). PLATE is
         # GATE VERB's. Replace COMB FILTER; DSP still sits in harvested PLATE.
-        fx2_id=0x13,
-        replaces="COMB FILTER",
+        fx2_id=0x1d,
         donor_desc=0x400d58b8,  # DARK REV page layout (12 knobs)
         abbr=b"VOID",
         fullname=b"VOID",

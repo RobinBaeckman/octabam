@@ -7,7 +7,7 @@ pool for swapped effects. `DSP.md` section 3 records `P:0x2000` as executable
 as unmeasured; the stock boot code also runs from the shared window
 (`P:0x30000`, `P:0x38000`). It ships in no remix but `remixes/test/pext-probe`.
 
-It is an insert on EQUALIZER's id (every id 4..31 is taken). Its output replaces
+It is an insert on id `0x0e` (EQUALIZER keeps `0x0c`). Its output replaces
 its track's audio with a status word, 32 bits a frame, one per sample slot, and
 a capture of the track's audio reads it with `decode.py`. `pextprobe.asm` is
 written by `gen_pextprobe.py` (the rungs are the same code at different
@@ -71,7 +71,7 @@ absolute P stores and `jsr` to an address).
 
 1. `make image REMIX=pext-probe BUILD=<n>`, flash it (`docs/guide/BUILDING.md`).
    The remix carries USB audio out, TRACKS PRE (16 channels, the tracks).
-2. A project with FX1 = PEXT PROBE (EQUALIZER's id, 12) on T1 and T5, GO OFF.
+2. A project with FX1 = PEXT PROBE (id `0x0e`, 14) on T1 and T5, GO OFF.
    Each instance tests its own core.
 3. Start a capture of the USB audio, all channels, 44.1 kHz, sample exact
    (T1 is channels 0, 1 and T5 is channels 8, 9).

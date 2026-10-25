@@ -79,8 +79,7 @@ MODULE = Module(
     proof=Proof.HARDWARE, proof_note="cursory testing on Sam's MKII (owner report, 16 Oct 2026)",
     doc="Character plus TXTR (Airwindows Pockey2): fold, texture, saturation, tilt, compressor, width.",
     menu=MenuEntry(
-        fx2_id=0x0d,                  # DJ EQ's: Character keeps LO-FI's 0x1c
-        replaces="DJ EQ",
+        fx2_id=0x1a,
         donor_desc=0x400d58b8,        # DARK REV: 12 active slots, selects 7/9/11
         abbr=b"CHRT",
         fullname=b"CharTxtr",

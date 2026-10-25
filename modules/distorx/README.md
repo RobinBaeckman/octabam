@@ -17,12 +17,9 @@ Author: MaMarko (Marko Brajković, [braikomarko-hub](https://github.com/braikoma
 DISTORX can be put on a track in the middle of a set and a pedal faded in
 when wanted.
 
-**FX id `0x05`, SPATIALIZER's, with `replaces="SPATIALIZER"`** (since 22 Oct
-2026): every non-stock id is a module's, and SPATIALIZER, a stereo widener,
-is the stock effect an acid line misses least of the three no module had
-taken (DELAY and FLANGER the others). A remix with DISTORX gives up
-SPATIALIZER on both menus. In the author's images DISTORX sat on `0x1b`
-(until 20 Oct) and `0x0a` (DTXPR1, 21 Oct), so a part saved there needs
+**FX id `0x1b`**, a free id; SPATIALIZER keeps `0x05`. In the author's images
+DISTORX sat on `0x1b` (until 20 Oct), `0x0a` (DTXPR1, 21 Oct) and `0x05`
+(SPATIALIZER's, DTXPR3, 22 Oct), so a part saved on `0x05` or `0x0a` needs
 DISTORX chosen again. A part saved before v8 reads its MODE one step lower:
 SD-1 → OFF, RAT → SD-1, TURB → RAT.
 

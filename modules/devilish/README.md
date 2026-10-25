@@ -37,7 +37,7 @@ With dEVILish on the track, its SLID replaces the OCTA-303 SETUP page's SLID.
 ## How it works
 
 - **ColdFire:** the module is a menu entry with twelve knobs (a clone of DARK REV's descriptor,
-  FX id `0x10`, PHASER's, which it replaces on both menus). The OCTA303 voice compares each track's live FX1 / FX2 id with that id
+  FX id `0x0b`). The OCTA303 voice compares each track's live FX1 / FX2 id with that id
   (`DEVIL_ID`, handed to `octa303` through `remix.inc`) and, on a match, reads the slot's knobs
   as the DSP gets them: page 1 from the track's DSP voice record, where the frame builder has applied
   the locks, the scene morph and the LFOs before the 303 renders (`docs/firmware/LFO.md` section 5,
@@ -61,7 +61,7 @@ With dEVILish on the track, its SLID replaces the OCTA-303 SETUP page's SLID.
 - ✅ On the unit: the author's MKI, `acidtrack` images up to ACIDV71, October 2026: the current
   dEVILish in daily use for several days, many hours in all, on two or three OCTA303 tracks beside
   DisTorX; no fault seen. Those images had it on FX id `0x1f`, then `0x1e`; on `0x10` (PHASER's,
-  since 21 Oct 2026, when `0x1e` became RESONATOR's) see "On the unit, this tree" when flashed.
+  since 21 Oct 2026, when `0x1e` became RESONATOR's; `0x0b` since the window change) see "On the unit, this tree" when flashed.
 
 - ✅ On the unit, this tree (on `0x10`): image DEVPR2 (BUILD 93, remix `devilish`, the owner's MKI,
   22 Oct 2026), by ear: an LFO on a dEVILish knob (FM, OVDR, TRCK) moves the 303, as it did not
@@ -100,5 +100,4 @@ OCTA303 and dEVILish beside the stock effects but PHASER, whose id dEVILish take
 
 ## FX id
 
-`0x10`, PHASER's, with `replaces="PHASER"`: on main every non-stock id below `0x20` is a
-module's. A remix with dEVILish gives up PHASER on both menus.
+`0x0b`, a free id: PHASER keeps `0x10`. A part saved on `0x10` (the previous definition) now selects PHASER.

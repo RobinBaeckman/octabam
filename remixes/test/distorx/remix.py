@@ -5,8 +5,8 @@ from remix.schema import Proof, Remix
 REMIX = Remix(
     name="distorx",
     family="effects",
-    proof=Proof.HARDWARE,
-    proof_note="the owner's MKI, image DTXPR3 (BUILD 96, this remix, on 0x05), 22 Oct 2026: T1 for more than four "
+    proof=Proof.CHECK,
+    proof_note="Before window placement and an id of its own (the module on a stock effect's id, the stock effects around it harvested): " "the owner's MKI, image DTXPR3 (BUILD 96, this remix, on 0x05), 22 Oct 2026: T1 for more than four "
                "minutes with four DISTORX at once, no clicks; before, DTXPR1 (BUILD 91, on 0x0a), 21 Oct 2026: every knob in every MODE, "
                "MODE changed while playing without a click, FX1 and FX2, four at once on both cores for 5 minutes, "
                "an LFO on DRIV/TONE, a scene with another MODE through the crossfader, save and reload; "

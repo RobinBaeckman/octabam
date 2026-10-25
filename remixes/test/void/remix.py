@@ -3,8 +3,8 @@ from remix.schema import Proof, Remix
 
 REMIX = Remix(
     family="effects",
-    proof=Proof.HARDWARE,
-    proof_note="MKII VOID V9 (COLR/HPF tables tip dd89e2e2+); verify_void.py 3s rail",
+    proof=Proof.CHECK,
+    proof_note="Before window placement and an id of its own (the module on a stock effect's id, the stock effects around it harvested): " "MKII VOID V9 (COLR/HPF tables tip dd89e2e2+); verify_void.py 3s rail",
     name="void",
     doc="VOID replaces COMB FILTER; PLATE REV words host its DSP.",
     modules=("VOID",

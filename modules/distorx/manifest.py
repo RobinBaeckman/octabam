@@ -333,8 +333,7 @@ MODULE = Module(
                "FX1 and FX2, an LFO, a scene, save and reload",
     doc="SD-1 + RAT + Turbo RAT in one insert: MODE picks the pedal (OFF first), a 3 ms fade between them.",
     menu=MenuEntry(
-        fx2_id=0x05,                  # SPATIALIZER's (README "FX id"): every non-stock id is a module's
-        replaces="SPATIALIZER",
+        fx2_id=0x1b,
         donor_desc=0x400d58b8,        # DARK REV: 12 active slots
         abbr=b"DTX",
         fullname=b"DISTORX",

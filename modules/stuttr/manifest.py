@@ -27,8 +27,7 @@ MODULE = Module(
     menu=MenuEntry(
         # MULTIBCOMP 0x19 — stock null stub, FX2-only; page clone still from
         # DARK REV. Leaves free-pool ids alone.
-        fx2_id=0x19,
-        replaces="MULTIBCOMP",
+        fx2_id=0x0a,
         donor_desc=0x400d58b8,
         abbr=b"STUT",
         fullname=b"Stuttr",

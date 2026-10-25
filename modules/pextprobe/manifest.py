@@ -23,8 +23,7 @@ MODULE = Module(
     proof=Proof.CHECK, proof_note="",
     doc="Measurement instrument: tests P memory above P:0x2000 and code in the shared window, and reports it in the track's audio.",
     menu=MenuEntry(
-        fx2_id=12,                    # EQUALIZER's id: every id 4..31 is taken, so the probe replaces one stock effect
-        replaces="EQUALIZER",
+        fx2_id=0x0e,
         donor_desc=0x400d58b8,        # DARK REV
         abbr=b"PXPR",
         fullname=b"PEXT PROBE",

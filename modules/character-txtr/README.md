@@ -3,9 +3,8 @@
 [Character](../character/README.md) with a texture stage: fold → **texture** →
 saturate → tilt → compress → width → mix. The source is `character.asm` as
 of `0ab4e46c` with the TXTR block (`chtx2`, its per-block decode and its
-P tables); everything else, knobs included, is Character's. On DJ EQ's id
-`0x0d` (Character keeps LO-FI's `0x1c`; the registry allows one module per
-id), drawn CHRT / CharTxtr:
+P tables); everything else, knobs included, is Character's. On id
+`0x1a`, a free id (DJ EQ keeps `0x0d`; Character keeps `0x17`), drawn CHRT / CharTxtr:
 [`remixes/test/character-txtr`](../../remixes/test/character-txtr/README.md)
 is bottleservice with this station in Character's place.
 

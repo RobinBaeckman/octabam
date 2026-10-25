@@ -4,7 +4,7 @@ A measurement instrument for one hardware run (modules/pextprobe/README.md): it 
 memory reaches above P:0x2000 on each DSP core and reports it in the audio of the track it sits on; USB
 carries the tracks (16 channels, PRE) to the host, which is where the report is read."""
 from remix.schema import Proof, Remix
-REMIX = Remix(family="effects", proof=Proof.CHECK, proof_note="",
+REMIX = Remix(family="effects", proof=Proof.CHECK, proof_note="Before window placement and an id of its own (the module on a stock effect's id, the stock effects around it harvested): " "",
               name="pext-probe", doc="PEXT PROBE on FX1 and USB audio out (TRACKS) beside the stock effects (all but EQUALIZER, whose id it takes, and PLATE REV and SPRING REV, whose words it takes).",
               modules=("USB", "PEXT PROBE",
                        "FILTER", "DJ EQ", "PHASER", "FLANGER",
@@ -13,6 +13,7 @@ REMIX = Remix(family="effects", proof=Proof.CHECK, proof_note="",
               fx1=("PEXT PROBE",
                    "FILTER", "DJ EQ", "PHASER", "FLANGER", "CHORUS",
                    "SPATIALIZER", "COMB FILTER", "COMPRESSOR", "LO-FI"),
+              window_auto=True,
               fallback="NONE",
               settings={("octabam.usb", "TRACKS"): "PRE", ("octabam.usb", "MAIN"): 0,
                         ("octabam.usb", "CUE"): 0, ("octabam.usb", "MASTER"): 0,

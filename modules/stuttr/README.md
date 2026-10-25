@@ -60,10 +60,10 @@ budget; a fifth is not offered by the panel.
 
 ## Storage and stock firmware
 
-The page descriptor is cloned from **DARK REV**; the FX id is **MULTIBCOMP**
-(`0x19`, `replaces=` — stock null stub, not a free-pool id). A Part saved
-with STUTTR keeps that id and the eight page bytes. Stock 1.40C runs
-MULTIBCOMP (null stub) on that id. If the same page bytes are loaded under
+The page descriptor is cloned from **DARK REV**; the FX id is `0x0a`, a free
+id (the previous definition used MULTIBCOMP's `0x19`, a stock null stub). A Part saved
+with STUTTR keeps that id and the eight page bytes. Stock 1.40C has no effect
+on `0x0a`. If the same page bytes are loaded under
 DARK REV, they read as DARK's knobs:
 
 | our slot | our name | stock DARK |

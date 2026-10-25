@@ -12,7 +12,7 @@ from remix.schema import Proof, Remix
 
 REMIX = Remix(
     name="character-txtr",
-    family="rig", proof=Proof.CHECK, proof_note="",
+    family="rig", proof=Proof.CHECK, proof_note="Before window placement and an id of its own (the module on a stock effect's id, the stock effects around it harvested): " "",
     doc="octabam-bus with CHARACTER TXTR (Character + Airwindows Pockey2 texture) on FX1 in place of CHARACTER: the image for measuring the texture stage's cost on a unit.",
     modules=("REVERB SERVER", "DELAY SERVER", "SEND",
              "SPECTRUM", "CHARACTER TXTR", "MODULATION",
@@ -22,6 +22,7 @@ REMIX = Remix(
              "SCENES P2", "PLOCKS P2",
              "DELAY",
              "FX2 LOCK"),
+    window_auto=True,
     fallback="SEND",
     hidden=("REVERB SERVER", "DELAY SERVER"),
     host_slots=(("DELAY SERVER", 2), ("REVERB SERVER", 2)),

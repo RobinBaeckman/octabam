@@ -410,13 +410,14 @@ void te_process(TapeState *restrict s, const TapeParams *restrict p,
 }
 
 #ifndef TE_HOST
+#define TE_FX_ID 0x1f   /* the FX2 id in manifest.py (MenuEntry.fx2_id); the remix pins it with `ids` */
 #define U32(a) (*(volatile uint32_t *)(a))
 unsigned te_cpu_frame(uint32_t *sp) {
     unsigned track = sp[112/4];
     const uint8_t *setup = (const uint8_t *)sp[76/4];
     if (track >= 8) return 0;
     TapeState *s = &te_states[track];
-    if (setup[7] != 0x15 || *(const uint8_t *)sp[108/4] == 7) {
+    if (setup[7] != TE_FX_ID || *(const uint8_t *)sp[108/4] == 7) {
         s->active = 0;
         return 0;
     }

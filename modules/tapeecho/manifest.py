@@ -22,8 +22,7 @@ MODULE = Module(
     proof=Proof.HARDWARE, proof_note="the author's unit (OCTACLID4): six instances run, a seventh freezes it, open",
     doc="Economy CPU tape echo: two biquads, simple FREE slew, snapped BEAT TIME and page-1 AGE.",
     menu=MenuEntry(
-        fx2_id=0x15,
-        replaces="SPRING REV",
+        fx2_id=0x1f,
         donor_desc=0x400d5726,        # SPRING REV: all twelve descriptor slots
         abbr=b"TAPE",
         fullname=b"Tape Echo",
