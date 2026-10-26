@@ -287,9 +287,10 @@ def main():
     lines.clear(); lines.extend(clear_lines)
     t[0] = float(clear_lines[-1].split()[0]) + 400
     key(KEY_DOWN); key(KEY_DOWN)       # file, FLASHED separator, flashed name
-    key(KEY_YES, 400); key(KEY_YES, 20)
+    # Frames stop once the reset is requested: a line timed after it waits 115 s for a frame that never
+    # comes (27 Oct 2026). The wait starts 5 ms after the key, before the reset, and the script ends on it.
+    key(KEY_YES, 400); key(KEY_YES, 5)
     send(f"wait {MBOX + C['MB_RESET']:#x} 52435220 eq 20000", 20000)
-    send("quit")
     clear_script = work / "clear.script"
     clear_script.write_text("\n".join(lines) + "\n")
     escape = work / "escape.bin"
