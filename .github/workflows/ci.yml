@@ -94,16 +94,16 @@ jobs:
           else
             base="${{ github.event.before }}"
           fi
-          python3 tools/verify/reach.py --json --jobs 3 --base "$base" > plan.json
+          python3 tools/verify/reach.py --json --jobs 3 --base "$base" > "$RUNNER_TEMP/plan.json"
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
-          import json
-          m = json.load(open("plan.json"))["matrix"]
+          import json, os
+          m = json.load(open(os.environ["RUNNER_TEMP"] + "/plan.json"))["matrix"]
           print("matrix=" + json.dumps([{"name": e["name"]} for e in m]))
           print(f"count={len(m)}")
           PY
           python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import json
-          m = json.load(open("plan.json"))["matrix"]
+          import json, os
+          m = json.load(open(os.environ["RUNNER_TEMP"] + "/plan.json"))["matrix"]
           print("| unit | commands |\n|---|---|")
           for e in m:
               print(f"| {e['name']} | " + "<br>".join(f"`{c}`" for c in e["commands"]) + " |")
@@ -213,7 +213,7 @@ jobs:
         run: make recon
 
       - name: 📦 Install Remixer Dependencies
-        run: pip install uv && make emu-setup
+        run: pip install uv && make emu-setup && git checkout -- uv.lock   # uv sync rewrites it; reach would read it as a change
 
       # the ColdFire port, built once per source state into .git/octabam-port
       # (tools/emu/port_store.py); `reach` and its shards install from there
@@ -261,7 +261,7 @@ jobs:
             base="${{ github.event.before }}"
           fi
           set -o pipefail
-          make reach RUN=1 KEEP=1 JOBS=3 BASE="$base" REACHARGS='--only "'"$UNIT"'"' 2>&1 | tee reach.log
+          make reach RUN=1 KEEP=1 JOBS=3 BASE="$base" REACHARGS='--only "'"$UNIT"'"' 2>&1 | tee "$RUNNER_TEMP/reach.log"
 
       # the unit's result tables and failure excerpts on the run's summary
       # page, under its name
@@ -270,16 +270,16 @@ jobs:
         env:
           UNIT: ${{ matrix.name }}
         run: |
-          [ -f reach.log ] || exit 0
+          [ -f "$RUNNER_TEMP/reach.log" ] || exit 0
           {
             echo "### 🧪 $UNIT"
             echo '```'
-            awk '/^check_shards: results/ {p=1} p && /^$/ {p=0} p' reach.log
-            sed -n '/^reach: results/,$p' reach.log
+            awk '/^check_shards: results/ {p=1} p && /^$/ {p=0} p' "$RUNNER_TEMP/reach.log"
+            sed -n '/^reach: results/,$p' "$RUNNER_TEMP/reach.log"
             echo '```'
-            if grep -qE '^(check_shards: .* failed \(exit|  \| )' reach.log; then
+            if grep -qE '^(check_shards: .* failed \(exit|  \| )' "$RUNNER_TEMP/reach.log"; then
               echo '```'
-              grep -E '^(check_shards: .* failed \(exit|  \| )' reach.log | head -60
+              grep -E '^(check_shards: .* failed \(exit|  \| )' "$RUNNER_TEMP/reach.log" | head -60
               echo '```'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
