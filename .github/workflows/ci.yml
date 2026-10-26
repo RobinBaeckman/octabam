@@ -250,6 +250,19 @@ jobs:
           key: gates-${{ steps.unit.outputs.slug }}-${{ github.run_id }}
           restore-keys: gates-${{ steps.unit.outputs.slug }}-
 
+      # The set gates (verify_set, mode-defaults, plocks-p2, dlload) SKIP without a project. An empty one is made
+      # by the firmware itself under the port from the runner's own OS (tools/hw/ot_fresh.py), on the unit's remix.
+      - name: 📁 Fresh Project
+        if: startsWith(matrix.name, 'check-remix ')
+        env:
+          UNIT: ${{ matrix.name }}
+        run: |
+          remix="${UNIT#check-remix }"
+          remix="${remix% (long)}"
+          make emu-get
+          .venv/bin/python3 tools/hw/ot_fresh.py --remix "$remix" --out out/fresh
+          echo "OT_PROJECT=$PWD/out/fresh/$remix/NOPROJ" >> "$GITHUB_ENV"
+
       # the unit's name goes through the environment: it can carry a remix name
       - name: 🧪 Run Gates
         env:
