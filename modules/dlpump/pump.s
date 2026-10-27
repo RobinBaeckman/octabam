@@ -32,6 +32,7 @@
         .equ    TOAST,  0x4005a2b8              | the firmware's message popup (text, duration)
         .equ    TOAST_TIME, 120                 | 1/60 s ticks: 2 s (stock's own calls use 48)
         .equ    DEBOUNCE, 200                   | idle calls (about 145 ms) an effect is used on a free block before it is loaded
+        .equ    SPIN,   100000                  | status polls of the host port for one word before the write is abandoned: far above what a healthy write needs (a healthy write waits one poll under the port)
         .equ    REPEAT, 30                      | idle calls (ping-0 frames) between a load and its second send
         .equ    RING,   0xa55a
         .equ    PING,   0                       | the frames whose host writes the port delivers (below)
@@ -48,8 +49,7 @@ dl_pump:
         beq.w   dg_p0
         subq.l  #1,%d1
         beq.w   dg_p1
-        addq.l  #1,%a1@(12)                     | [3]: ping neither 0 nor 1
-        bra.w   dg_ok
+        bra.w   dg_ok                           | ping neither 0 nor 1: not counted ([3] counts abandoned host writes)
 dg_p0:  addq.l  #1,%a1@(4)                      | [1]: ping 0
         bra.w   dg_ok
 dg_p1:  addq.l  #1,%a1@(8)                      | [2]: ping 1
@@ -71,6 +71,8 @@ dg_ok:  move.l  dl_state,%d0
         move.l  dl_src,%a0
         move.l  %d2,%d5
         bsr.w   dl_xfer
+        tst.l   %d3
+        bne.w   dl_to
         lea     dl_dg,%a1
         addq.l  #1,%a1@(28)                     | [7]: chunks sent
         lea     dl_dest,%a1
@@ -91,9 +93,17 @@ dg_ok:  move.l  dl_state,%d0
         lea     dl_bell,%a0
         moveq   #1,%d2
         bsr.w   dl_xfer
+        tst.l   %d3
+        bne.w   dl_to
         lea     dl_dg,%a1
         addq.l  #1,%a1@(32)                     | [8]: doorbells sent
         clr.l   dl_state
+        bra.w   8f                              | the doorbell is sent: back to core A, return
+dl_to:  lea     dl_dg,%a1
+        addq.l  #1,%a1@(12)                     | [3]: host writes abandoned for want of a status flag
+        clr.l   dl_state
+        moveq   #1,%d0
+        move.l  %d0,dl_dead                     | the pump stands down for the session: a core that stops taking words is not fed again
 8:      moveq   #0,%d0
         move.b  %d0,CSEL                        | the frame code expects core A selected
 9:      rts
@@ -103,6 +113,8 @@ dg_ok:  move.l  dl_state,%d0
 | under a stock reverb) or a withdrawal (loaded and used by no track for GRACE idle calls). Whoever holds a block
 | keeps it: a loaded effect is not withdrawn for a reverb, and a reverb is not moved for an effect.
 idle:
+        tst.l   dl_dead
+        bne.w   9b
         .if     PHASE_ANY == 0
         moveq   #PING,%d1
         cmp.l   0x800000e0,%d1
@@ -133,7 +145,10 @@ idle:
         move.l  dl_loaded,%d0
         move.l  %d0,%a1@(40)                    | [10]: loaded bits
         move.l  dl_busy,%d1
-        move.l  %d1,%a1@(44)                    | [11]: blocks holding code
+        move.l  dl_spin,%d2
+        lsl.l   #8,%d2
+        or.l    %d2,%d1
+        move.l  %d1,%a1@(44)                    | [11]: blocks holding code (bits 0..3), the longest host-port wait in polls (bits 8 up)
         lea     LIVE,%a0
         move.l  %a0@+,%a1@(48)                  | [12..15]: the 16 live ids
         move.l  %a0@+,%a1@(52)
@@ -529,10 +544,21 @@ dl_xfer:
         move.l  #0x88,%d0
         move.w  %d0,HOST+4
         move.l  %d2,%d3
-3:      move.w  HOST+8,%d0
+        move.l  %d7,%sp@-
+3:      move.l  #SPIN,%d7                       | a word's wait is bounded: a core that stops taking words must not hold the frame interrupt
+5:      move.w  HOST+8,%d0
         and.l   #6,%d0
-        beq.w   3b
-        moveq   #0,%d1
+        bne.w   4f
+        subq.l  #1,%d7
+        bne.w   5b
+        move.l  %sp@+,%d7
+        rts                                     | abandoned: d3 = the words left, non-zero
+4:      move.l  #SPIN,%d0                       | the longest wait so far, published in DL_DIAG[11] (bits 8 up)
+        sub.l   %d7,%d0
+        cmp.l   dl_spin,%d0
+        bls.w   6f
+        move.l  %d0,dl_spin
+6:      moveq   #0,%d1
         move.w  (%a0)+,%d1
         moveq   #0,%d0
         move.w  %d0,HOST+0x14
@@ -542,7 +568,8 @@ dl_xfer:
         move.w  %d1,HOST+0x1c
         subq.l  #1,%d3
         bne.w   3b
-        rts
+        move.l  %sp@+,%d7
+        rts                                     | done: d3 = 0
 
         .data
         .globl  dl_state, dl_core, dl_dest, dl_src, dl_left, dl_loaded
@@ -555,6 +582,9 @@ dl_loaded: .long 0                      | bit k: effect k is loaded
 dl_seen:  .long 0, 0, 0, 0              | per effect: idle calls it has been used, not loaded, on a free block
 dl_hm:    .long 0, 0, 0, 0                  | per effect: the index of the home it is loaded in
 dl_busy:  .long 0                           | bit b: the demand code in block b (0..3)
+dl_spin:  .long 0                           | the most status polls one word waited
+        .globl  dl_spin
+dl_dead:  .long 0                           | non-zero once a host write was abandoned
 dl_gone:  .long 0, 0, 0, 0              | per effect: idle calls it has been loaded and unused
 dl_rwait: .long 0                       | idle calls until the load of effect dl_rk is sent again (0: none)
 dl_rk:    .long 0

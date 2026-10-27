@@ -15,7 +15,7 @@ import time
 
 import load_meter as lm
 
-NAMES = ("pump calls (frame interrupts)", "calls with ping 0", "calls with ping 1", "calls with another ping",
+NAMES = ("pump calls (frame interrupts)", "calls with ping 0", "calls with ping 1", "host writes abandoned (timeout)",
          "idle passes on a delivering frame", "loads armed", "withdrawals armed", "chunks sent",
          "doorbells sent", "repeats armed", "effects loaded (bits)", "blocks holding code (bits)", "(spare)")
 
@@ -31,6 +31,10 @@ def read(dev):
 def show(r):
     w = r["words"]
     for name, v in zip(NAMES, w):
+        if name.startswith("blocks holding"):
+            print(f"  {name:36s} {v & 0xff}")
+            print(f"  {'longest host-port wait (polls)':36s} {v >> 8}")
+            continue
         if not name.startswith("(spare)"):
             print(f"  {name:36s} {v}" + (f"  (0b{v:04b})" if name.startswith("effects") else ""))
     live = r["live"]

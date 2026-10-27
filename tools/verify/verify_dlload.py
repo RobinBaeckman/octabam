@@ -63,6 +63,7 @@ def main():
     ap.add_argument("--set-name", default="BRAINSET")
     ap.add_argument("--name", default="BRAINPRJ")
     ap.add_argument("--ms", type=int, default=7000)
+    ap.add_argument("--only", default="", help="run only these scenarios (comma-separated) and print the pump's counters and its longest host-port wait; no checks")
     a = ap.parse_args()
     project = a.project
     if not project and pathlib.Path("~/.octabam_project").expanduser().is_file():
@@ -126,6 +127,9 @@ def main():
         "pick": (poke(live, part, 1, 0), []),
         "pick-blocked": (poke(live, part, 1, 0) + ";" + poke(FX2_LIVE, FX2_PART, block_track, DARK), []),
         "pick-both-blocked": (poke(live, part, 1, 0) + ";" + both, []),
+        # the move that froze a unit (28 Oct 2026): loaded in the second home, then back to the first when a reverb arrives on the second's track
+        "moveback": (poke(FX1_LIVE, FX1_PART, 0, mod_id) + ";" + poke(FX2_LIVE, FX2_PART, block_track, DARK),
+                     [(3000, poke(FX2_LIVE, FX2_PART, block_track, 0x08)), (5000, poke(FX2_LIVE, FX2_PART, alt_track, DARK))]),
         "pick-reverb": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0), []),
         "pick-reverb-stuck": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0) + ";" + poke(FX2_LIVE, FX2_PART, alt_track, DARK), []),
         "pick-reverb-unused": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0),
@@ -133,6 +137,14 @@ def main():
         "reverb-takes": (poke(FX1_LIVE, FX1_PART, 0, mod_id),                           # unused at 2 s, a reverb arrives at 2.5 s
                          [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER)), (2500, poke(FX2_LIVE, FX2_PART, block_track, DARK))]),
     }
+    # DL_DIAG's address in this build (the runtime's symbols): the pump's counters are read back from memory
+    DG = SP = 0
+    try:
+        nm = subprocess.run(["m68k-elf-nm", str(ROOT / "out/platform/runtime/runtime.elf")], capture_output=True, text=True).stdout
+        DG = next(int(l.split()[0], 16) for l in nm.splitlines() if l.split()[-1] == "dl_dg")
+        SP = next(int(l.split()[0], 16) for l in nm.splitlines() if l.split()[-1] == "dl_spin")
+    except (OSError, StopIteration, ValueError):
+        pass
     watch = {}
     for k, r in enumerate(recs):                                   # every effect, on a track of each core
         scenarios[f"runs-b{k}"] = (poke(FX1_LIVE, FX1_PART, 0, r["id"]), [])      # T1 is on core B
@@ -143,6 +155,8 @@ def main():
     for tag, (tracks, core, _) in TWO.items():
         scenarios[tag] = (";".join(poke(FX1_LIVE, FX1_PART, t, rec["id"]) for t in tracks), [])
         watch[tag] = f"{core}:{rec['proc']:x}"
+    if a.only:
+        scenarios = {t: v for t, v in scenarios.items() if t in a.only.split(",")}
     procs = {}
     for tag, (first, later) in scenarios.items():
         card = OUT / f"{tag}.img"
@@ -173,8 +187,9 @@ def main():
         peeks = ";".join(f"{c}:X:{STAGE:x},1;{c}:X:{0x33DA3 + 8 * k:x},8;{c}:P:{r['addr']:x},{len(r['words'])}"
                          for c in (0, 1) for k, r in enumerate(recs))
         cmd = [EMU, "--image", image, "--card", card, "--set", a.set_name, "--project", a.name, "--load-ms", "90000",
-               "--mkii", "--dsp", "--frame", "--live-script", OUT / f"{tag}.script", "--dsp-peek", peeks,
-               "--mem-dump", f"{FX1_LIVE:#x},16={dump}"]
+               "--mkii", "--frame", "--live-script", OUT / f"{tag}.script", "--dsp-peek", peeks,
+               "--mem-dump", f"{FX1_LIVE:#x},16={dump}" + (f";{DG:#x},64={OUT / (tag + '_dg.bin')}" if DG else "") + (f";{SP:#x},4={OUT / (tag + '_spin.bin')}" if SP else "")]
+        cmd.insert(cmd.index("--frame"), "--dsp")
         if first:
             cmd += ["--step", "-:poke:" + first]
         if tag in watch:
@@ -184,6 +199,15 @@ def main():
         fh = open(OUT / f"{tag}.txt", "w")
         procs[tag] = (subprocess.Popen(list(map(str, cmd)), cwd=ROOT, stdout=fh, stderr=subprocess.STDOUT), fh)
     texts = {}
+    if a.only:
+        import struct as _st
+        for tag, (p, fh) in procs.items():
+            p.wait(); fh.close()
+            if DG:
+                d = _st.unpack(">16I", (OUT / (tag + "_dg.bin")).read_bytes())
+                sp = int.from_bytes((OUT / (tag + "_spin.bin")).read_bytes(), "big") if SP else -1
+                print(f"{tag}: spinmax={sp} calls={d[0]} abandoned={d[3]} loads={d[5]} wd={d[6]} chunks={d[7]} bells={d[8]} repeats={d[9]} loaded={d[10]} busy={d[11]}")
+        return 0
     for tag, (p, fh) in procs.items():
         rc = p.wait()
         fh.close()
@@ -236,6 +260,14 @@ def main():
     entry = peek("stuck", 1, "X", 0x33DA3)
     check(f"{recs[0]['key']} stays in its first home when a reverb reaches it and the other home is taken",
           entry[0] == 0xB0A5ED and entry[3] == rec["addr"] and entry[5:8] == [3, 0, 3], f"{[hex(w) for w in entry]}")
+    print("moveback:")
+    entry = peek("moveback", 1, "X", 0x33DA3)
+    check(f"{recs[0]['key']}, loaded in its second home, moves back to its first when a reverb that reaches the second arrives",
+          entry[0] == 0xB0A5ED and entry[3] == rec["addr"] and entry[5:8] == [6, 0, 6], f"{[hex(w) for w in entry]}")
+    if DG:
+        import struct as _st
+        dg_ = _st.unpack(">16I", (OUT / "moveback_dg.bin").read_bytes())
+        check("and no host write was abandoned", dg_[3] == 0, f"abandoned {dg_[3]}")
     print("race:")
     entry = peek("race", 1, "X", 0x33DA3)
     check(f"{recs[0]['key']} is not loaded when reverbs arrive on every home 60 ms after it (a project load writes the ids over a stretch of frames)",
