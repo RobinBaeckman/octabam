@@ -132,6 +132,10 @@ def main():
                      [(3000, poke(FX2_LIVE, FX2_PART, block_track, 0x08)), (5000, poke(FX2_LIVE, FX2_PART, alt_track, DARK))]),
         "pick-reverb": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0), []),
         "pick-reverb-stuck": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0) + ";" + poke(FX2_LIVE, FX2_PART, alt_track, DARK), []),
+        # the freezing case on a unit (28 Oct 2026), with the panel's keys: loaded in the second home (a reverb on the first's track),
+        # that track back to DELAY, then a reverb picked on the second home's track from the chooser
+        "pick-reverb-t4": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, DARK),
+                           [(3000, poke(FX2_LIVE, FX2_PART, block_track, 0x08))]),
         "pick-reverb-unused": (every_first + ";" + poke(FX2_LIVE, FX2_PART, block_track, 0),
                                [(2000, poke(FX1_LIVE, FX1_PART, 0, FILTER))]),         # loaded, but no track uses it
         "reverb-takes": (poke(FX1_LIVE, FX1_PART, 0, mod_id),                           # unused at 2 s, a reverb arrives at 2.5 s
@@ -169,7 +173,7 @@ def main():
         if tag.startswith("pick"):
             t = 1500 if not tag.startswith("pick-reverb") else 3500   # after the load has landed
             if tag.startswith("pick-reverb"):
-                keys = ((f"t{block_track + 1}", 400), ("fx2", 160), ("fx2", 800)) + (("down", 500),) * reverb_row + (("yes", 1500),)
+                keys = ((f"t{(alt_track if tag == 'pick-reverb-t4' else block_track) + 1}", 400), ("fx2", 160), ("fx2", 800)) + (("down", 500),) * reverb_row + (("yes", 1500),)
             else:
                 keys = (("no", 400), ("t2", 400), (chooser, 160), (chooser, 800)) + (("down", 500),) * row + (("yes", 1500),)
             if tag.startswith("pick-reverb"):
@@ -181,7 +185,7 @@ def main():
             lines += [f"{a.ms - 800} key {KEYS['fx1']:#x} down", f"{a.ms - 760} key {KEYS['fx1']:#x} up"]
         # the script is read in order, so a quit that is earlier than the last key waits for it; after a pick that moves
         # an effect, the reload (the debounce, then three sends) needs a few seconds past the last key
-        lines.append(f"{(t + 3000) if tag == 'pick-reverb' else (3400 if tag == 'reverb-takes' else a.ms)} quit")
+        lines.append(f"{(t + 3000) if tag in ('pick-reverb', 'pick-reverb-t4') else (3400 if tag == 'reverb-takes' else a.ms)} quit")
         (OUT / f"{tag}.script").write_text("\n".join(lines) + "\n")
         dump = OUT / f"{tag}_ids.bin"
         peeks = ";".join(f"{c}:X:{STAGE:x},1;{c}:X:{0x33DA3 + 8 * k:x},8;{c}:P:{r['addr']:x},{len(r['words'])}"
@@ -206,7 +210,7 @@ def main():
             if DG:
                 d = _st.unpack(">16I", (OUT / (tag + "_dg.bin")).read_bytes())
                 sp = int.from_bytes((OUT / (tag + "_spin.bin")).read_bytes(), "big") if SP else -1
-                print(f"{tag}: spinmax={sp} calls={d[0]} abandoned={d[3]} loads={d[5]} wd={d[6]} chunks={d[7]} bells={d[8]} repeats={d[9]} loaded={d[10]} busy={d[11]}")
+                print(f"{tag}: spinmax={sp} calls={d[0]} abandoned={d[3]} loads={d[5]} wd={d[6]} chunks={d[7]} bells={d[8]} repeats={d[9]} loaded={d[10]} busy={d[11] & 0xff}")
         return 0
     for tag, (p, fh) in procs.items():
         rc = p.wait()
