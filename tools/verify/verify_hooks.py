@@ -63,7 +63,7 @@ def selection():
           "an empty selection: HOOKS has no unit, claim or override")
     check(not registry.hooks_needed(known, {RTM, "MORPH"} - {"MORPH"}) and
           registry.hooks_needed(known, {RTM, "MORPH"}), "registry.hooks_needed follows the bridges")
-    for name, want in (("octabam", False), ("morph", False), ("rec-threshold", False), ("hooks", True)):
+    for name, want in (("octabam", True), ("morph", False), ("rec-threshold", False), ("hooks", True)):
         try:
             has = "HOOKS" in registry.remix(name).modules
         except SystemExit:
