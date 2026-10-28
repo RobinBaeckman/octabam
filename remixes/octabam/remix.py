@@ -27,12 +27,12 @@ OURS = ("MODULATION", "SPECTRUM", "CHARACTER", "TRANSIENT")
 # Every other ColdFire module that can share this image (the ledger; HOOKS joins the pairs that
 # share a stock site). Not here: ANALOG BD (its fixed pre-boot DSP scratch 0x40b00000 is under
 # this much DRAM code), CX OSC and SYNTH MACHINE (the cave 0x400d24d0 the stock DELAY reads),
-# CF METER IDLE and WAVE LOAD (CF METER's FX2 id is MODULATION's), STEM REC (LOAD METER),
+# CF METER IDLE and WAVE LOAD (CF METER's FX2 id is MODULATION's),
 # MIDI LOOPBACK (MIDI SCENES), DIRECT JUMP and PERSISTENT BUFFERS (DIRECT_JUMP_KYOTI and BUFFER
 # SAVER do their jobs), and the bus and diagnostic modules (TEMPO SYNC, TEMPO BUS, RIG HOSTS, BOOT TRACE).
 COLDFIRE = ("OCTA303", "MORPH", "REC THRESHOLD", "BUFFER SAVER", "COPY PROJECT", "EUCLID FILL",
             "FX2 LOCK", "MIDI SCALES", "RND NAME", "SCOPE", "TRACK PATTERNS",
-            "VARISPEED")
+            "VARISPEED", "STEM REC")
 STOCK_FX1 = ("FILTER", "EQUALIZER", "DJ EQ", "PHASER", "FLANGER", "CHORUS", "SPATIALIZER",
              "COMB FILTER", "SIDECHAIN_COMPRESSOR", "LO-FI")
 
