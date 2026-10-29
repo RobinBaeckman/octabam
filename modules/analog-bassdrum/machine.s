@@ -4,7 +4,7 @@
 | Playback resolves our runtime descriptor per track. Audio enters through
 | the native renderer kind table, leaving AMP, FX1 and FX2 to stock.
         .text
-        .include "remix.inc"            | HK_MACHINE_ROWS: OCTA303 on row 6 beside us (modules/hooks)
+        .include "remix.inc"            | MT_CLIENT: a row of the machine table (modules/machines)
         .global ab_machine_name
         .global ab_src_names
         .global ab_main_commit
@@ -16,14 +16,12 @@
         .global ab_resolve_pb
         .global ab_sig_check
         .global ab_validate
-        .if     HK_MACHINE_ROWS
-| Beside OCTA303 (modules/hooks, machine_rows): our hooks stay the head and
-| hand every row but ours to OCTA303's routine for the same hook, which is
-| built with its row 6. ab_row_type answers both machines' rows.
-        .global ab_row_type
-        .endif
 
+        .if     MT_CLIENT
+        .equ    AB_ROW, MT_ROW
+        .else
         .equ    AB_ROW, 5
+        .endif
         .equ    FLEX, 1
         .equ    SRC_CURSOR, 0x460d5c30
         .equ    BANK_PTR, 0x46c82456
@@ -124,13 +122,9 @@ ab_machine_name:
         move.l  4(%sp),%d0
         cmpi.l  #AB_ROW,%d0
         beq.s   1f
-        .if     HK_MACHINE_ROWS
-        jmp     o3_machine_name
-        .else
         move.l  %d2,-(%sp)
         move.l  8(%sp),%d1
         jmp     (0x400334de).l
-        .endif
 1:      lea     ab_name(%pc),%a0
         move.l  %a0,%d0
         rts
@@ -143,9 +137,6 @@ ab_src_names:
         .long   0x400b5413
         .long   0x400b7a63
         .long   ab_name
-        .if     HK_MACHINE_ROWS
-        .long   o3_title
-        .endif
 
 ab_admit:
         lea -20(%sp),%sp
@@ -177,11 +168,6 @@ ab_main_commit:
 .mc_other:
         moveq   #0,%d1
         bsr     ab_sig_write
-        .if     HK_MACHINE_ROWS
-        movem.l (%sp),%d0-%d1/%a0
-        lea     12(%sp),%sp
-        jmp     o3_main_commit          | its row signs as TB-303, any other stores as stock
-        .endif
 .mc_store:
         movem.l (%sp),%d0-%d1/%a0
         lea     12(%sp),%sp
@@ -224,15 +210,6 @@ ab_src_common:
         moveq   #0,%d1
         bsr     ab_sig_write
         move.l  (%sp)+,%d1
-        .if     HK_MACHINE_ROWS
-        movem.l (%sp),%d0/%d2/%a0
-        lea     12(%sp),%sp
-        move.l  (%sp)+,%d1              | our continuation: OCTA303's commit pushes its own
-        cmpi.l  #0x4005a61c,%d1
-        bne.s   3f
-        jmp     o3_src_commit
-3:      jmp     o3_src_commit2
-        .endif
 .sc_go:
         movem.l (%sp),%d0/%d2/%a0
         lea     12(%sp),%sp
@@ -261,10 +238,6 @@ ab_setup_open:
         jmp     (0x400585e6).l
 
 ab_setup_edit6:
-        .if     HK_MACHINE_ROWS
-        cmpi.l  #6,%d2                  | OCTA303's row: its bytes are FLEX's too
-        beq.s   2f
-        .endif
         cmpi.l  #AB_ROW,%d2
         bne.s   1f
         move.l  %a3,%d0
@@ -277,10 +250,6 @@ ab_setup_edit6:
         sub.l   %d2,%d0
         jmp     (0x4003a536).l
 ab_setup_draw6:
-        .if     HK_MACHINE_ROWS
-        cmpi.l  #6,%d6
-        beq.s   2f
-        .endif
         cmpi.l  #AB_ROW,%d6
         bne.s   1f
 2:      moveq   #FLEX,%d6
@@ -329,11 +298,7 @@ ab_row_type:
         jsr ab_type
         movem.l 8(%sp),%d1/%a0-%a1
         lea 20(%sp),%sp
-        .if     HK_MACHINE_ROWS
-        jmp     o3_type                 | FLEX not ours: OCTA303's row 6 when its
-        .else                           | signature is there (it keeps all but d0)
         rts
-        .endif
 
 ab_resolve_pb:
         mvs.b %d5,%d0
@@ -345,12 +310,6 @@ ab_resolve_pb:
         addq.l #4,%sp
         jmp (0x40031ed6).l
 1:
-        .if     HK_MACHINE_ROWS
-        cmpi.l  #6,%d0                  | OCTA303's row: stored FLEX, which its
-        bne.s   2f                      | resolver hook (0x40031ece) reads
-        moveq   #FLEX,%d0
-2:
-        .endif
         lea (PB_TABLE).l,%a0
         jmp (0x40031ece).l
 
@@ -359,9 +318,6 @@ ab_validate:
         jmp ab_validate_part
         .global ab_stock_validate
 ab_stock_validate:
-        .if     HK_MACHINE_ROWS
-        jmp     o3_validate             | OCTA303's tracks next, then stock
-        .endif
         lea -96(%sp),%sp
         movem.l %d2-%d7/%a2-%fp,(%sp)
         jmp (0x40002320).l
@@ -371,9 +327,6 @@ ab_tick_hook:
         jsr 0x4005213c
         jsr 0x4007e940
         jsr ab_ui_tick
-        .if     HK_MACHINE_ROWS
-        jsr     o3_publish              | OCTA303's record as UI type 6's
-        .endif
         jmp 0x40052228
 ab_name:
         .asciz "ANALOG BD"
@@ -426,7 +379,7 @@ ab_list_draw:
         .global ab_pool_title
 ab_pool_title:
         moveq #1,%d6
-        cmpi.l #5,%d0
+        cmpi.l #AB_ROW,%d0
         bne.s .title_stock
         lea -16(%sp),%sp
         movem.l %d0-%d1/%a0-%a1,(%sp)
@@ -446,3 +399,39 @@ ab_pool_title:
         jmp (0x40077b62).l
 .title_plain:
         jmp (0x40077b70).l
+
+        .if     MT_CLIENT
+| On the machine table (modules/machines), which owns every row site above: the
+| two routines our declaration names. Both C ABI.
+| ab_mt_record(Part', track) -> our page record (ab_track_page, by the track's MODEL).
+        .global ab_mt_record, ab_mt_render
+ab_mt_record:
+        move.l  4(%sp),%a0
+        adda.l  8(%sp),%a0
+        pea     0x22(%a0)               | the track's machine byte
+        jsr     ab_track_page
+        addq.l  #4,%sp
+        rts
+| ab_mt_render(track, ping, start, end): ab_render for our tracks; every other track
+| on to the table's next renderer (ab_render's own fallback is stock's, fixed in C).
+ab_mt_render:
+        move.l  (BANK_PTR).l,%d1
+        cmpi.l  #0x40000000,%d1
+        bcs.s   1f
+        movea.l %d1,%a0
+        adda.l  #PART_OFF,%a0
+        moveq   #0,%d1
+        move.b  (PART_IDX).l,%d1
+        andi.l  #3,%d1
+        mulu.w  #PART_STRIDE,%d1
+        adda.l  %d1,%a0
+        move.l  4(%sp),%d0
+        moveq   #8,%d1
+        cmp.l   %d1,%d0
+        bcc.s   1f
+        bsr     ab_sig_check
+        tst.l   %d0
+        beq.s   1f
+        jmp     ab_render
+1:      jmp     MT_NEXT
+        .endif

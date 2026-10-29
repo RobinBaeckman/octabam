@@ -106,9 +106,13 @@ nav:
       - Direct Jump (Kyoti): reference/modules/direct-jump-kyoti.md
       - Erase Empty Trigless Locks: reference/modules/erase-empty-trigless-locks.md
       - Euclid Fill: reference/modules/euclid-fill.md
+      - Grainer: reference/modules/grainer.md
+      - Ladder: reference/modules/ladder.md
+      - Machines: reference/modules/machines.md
       - Mute Modes: reference/modules/mute-modes.md
       - OCTA-303: reference/modules/octa303.md
       - Page 2 Parameter Locks: reference/modules/plocks-p2.md
+      - Poly: reference/modules/poly.md
       - Quantize Live Rec Toggle: reference/modules/quantize-live-rec-toggle.md
       - Rec Threshold: reference/modules/rec-threshold.md
       - Recorder Trig Mute: reference/modules/rec-trig-mute.md

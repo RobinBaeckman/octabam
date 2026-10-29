@@ -82,8 +82,8 @@
         .set    TRK_STRIDE,     0x91a           | + track * 0x91a: the track record (masks at +0, +8, +16; length +0x50)
         .set    LANE_HOLD,      13              | the live lane's AMP HOLD (lock slot 13, PARAM_PAGES.md 5a')
         .include "remix.inc"            | DEVIL_ID: dEVILish's FX id, or 0x100 (never a byte) without it
-        .if     HK_MACHINE_ROWS         | beside ANALOG BD (modules/hooks, machine_rows): its renderer
-        .set    STOCK_RENDER,   ab_render       | is the next in the FLEX kind entry's chain
+        .if     MT_CLIENT               | a row of the machine table (modules/machines): the tracks
+        .set    STOCK_RENDER,   MT_NEXT         | not ours go on to the next renderer in its chain
         .endif
         .set    CURVALS,        0x80000810      | the frame builder's live lane, 72 B a track, locks applied
         .set    CV_STRIDE,      72
@@ -1404,9 +1404,9 @@ o3_setup:
 | lane +0x20).  The stock validator sees FLEX's defaults in a signed track's twelve bytes (o3_validate).
 | Part' = BANK + PART_OFF + part * PART_SIZE (the machine bytes at +0x22, ANALOG BD's form).
 | ============================================================================
-        .if     HK_MACHINE_ROWS
-        .set    O3_ROW,         6               | beside ANALOG BD, which keeps row 5 (modules/hooks)
-        .global o3_type, o3_title, o3_publish
+        .if     MT_CLIENT
+        .set    O3_ROW,         MT_ROW          | the table's row for us (modules/machines)
+        .global o3_mdesc                        | our record: the table's record(Part', track)
         .else
         .set    O3_ROW,         5               | the machine's row and UI type
         .endif
@@ -2032,13 +2032,6 @@ o3_tick:
         bsr     o3_mdesc
         move.l  %d0,PB_TABLE+4*O3_ROW
         jmp     0x40052228
-        .if     HK_MACHINE_ROWS
-| o3_publish -- the same record from ANALOG BD's tick hook (ab_tick_hook), which owns the site.
-o3_publish:
-        bsr     o3_mdesc
-        move.l  %d0,PB_TABLE+4*O3_ROW
-        rts
-        .endif
 
 | o3_main_commit -- Detour 0x4007981c (`mvs.b (a0),d3; move.b d4,(a0); add.l d1,d0`): the machine list's
 | commit, a1 = bank, d0 = part * PART_SIZE, d1 = track, d4 = the row.  Row 5 signs the track and stores FLEX.

@@ -1,12 +1,12 @@
 """Analog BD: native source synthesis, one machine with 808/909 models."""
-from remix.schema import ArenaReserve, Category, Detour, Gate, Kind, Linked, Module, Poke, Proof, SymbolRef
+from remix.schema import ArenaReserve, Category, Detour, Gate, Kind, Knob, Linked, Machine, Module, Poke, Proof, SymbolRef
 H=bytes.fromhex
 
 
 def _hooks_inc(modules, remix=None):
-    """remix.inc for machine.s: modules/hooks's flags (machine_rows beside OCTA303)."""
-    from remix import hooks_flags
-    return hooks_flags.inc("ANALOG BD", modules)
+    """remix.inc for machine.s: the machine table's flags (modules/machines)."""
+    from remix import machine_flags
+    return machine_flags.inc("ANALOG BD", modules)
 
 
 MODULE=Module(
@@ -21,6 +21,15 @@ MODULE=Module(
     pressure_blocker="DSP source engines are outside the FX pressure pricer; "
                      "see modules/analog-bassdrum/CPU.md and benchmark_analog_bd.py",
     dsp_source="tools/build/ab_image.py",
+    # On the machine table (modules/machines) beside another machine; alone, the claims below.
+    # The page is ab_track_page's (its names follow MODEL), so `record` names it; knobs give
+    # the defaults a new track gets (ab_defaults) and MODEL hidden from SETUP (its browser's).
+    machine=Machine(
+        name="ANALOG BD", short="SYN", sig="AB",
+        knobs=(Knob("PITCH", 64), Knob("DECAY", 80), Knob("TONE", 80), Knob("ATK", 64),
+               Knob("SWEEP", 64), Knob("SAT", 0), Knob("", 0, count=0), Knob("ACCNT", 64),
+               Knob("LPF", 127, fmt="ab_lpf_fmt"), Knob("LOW", 64), Knob("HIGH", 64), Knob("---", 0)),
+        render="ab_mt_render", record="ab_mt_record"),
     linked=(
         Linked("abmachine", "modules/analog-bassdrum/machine.s", dram=True, include=_hooks_inc),
         Linked("abcontrol", "modules/analog-bassdrum/control.s", dram=True),

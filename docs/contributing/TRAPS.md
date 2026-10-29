@@ -1391,6 +1391,25 @@ single UP moved two rows and landed on PICKUP. Fix: HOOKS pokes both
 `moveq`s in each handler to 6; the gate presses UP for 0.06 s. Rule: when a
 list grows, find every constant near its old size in the code that touches
 the list (a byte search for the clamp found all five), and in a port script
-hold a key only as long as you mean it to repeat. Gate: `verify_hooks`
-(installed: the ten pokes) and `verify_analog_bassdrum_ui` on
-`hooks-machines` (row 5 reached from the bottom of seven).
+hold a key only as long as you mean it to repeat. Gate: since the machine
+table (29 Oct 2026) MACHINES owns the clamps and pokes them to 4 + rows
+(`verify_machines`, installed), and `verify_analog_bassdrum_ui` on
+`machines-pair` reaches row 5 from the bottom of seven.
+
+<a name="trap-pb-table-neighbour"></a>
+
+### Stock's PLAYBACK record table has seven rows; the eighth word is the FX1 table's
+
+**A MACHINE ON ROW 7 READS ITS PAGE RECORD FROM ANOTHER TABLE.** The page
+resolver and four other readers index `0x400d5f38` by the track's UI type
+(`lea 0x400d5f38,a0`; `move.l (a0,d0.l*4),a0`): rows 0-4 are stock's
+machines, 5 and 6 are unused slots ANALOG BD and OCTA303 each filled, and
+the word after row 6 is the first word of the FX1 records' table. With
+four machines (rows 5-8) the third and fourth machine's records would be
+read from FX1's table and its neighbour, and a poke to grow the table would
+overwrite FX1's. Fix: MACHINES keeps its own record table `mt_pages` (stock's
+five, then one a machine) and points every reader at it (`PB_LEAS` in
+`modules/machines/manifest.py`, plus the resolver it owns). Rule: before
+indexing a stock table past the rows stock uses, read what follows it in
+the image. Gate: `verify_machines` (installed: every reader points at
+`mt_pages`), `verify_octa303_ui` reads its row's record from `mt_pages`.

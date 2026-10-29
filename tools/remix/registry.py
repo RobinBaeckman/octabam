@@ -27,6 +27,7 @@ from remix.schema import NO_FALLBACK, on_the_bus  # noqa: E402
 REMIX_SWITCH = "REMIX SWITCH"
 MEMORY = "MEMORY"
 HOOKS = "HOOKS"
+MACHINES = "MACHINES"
 
 
 def hooks_needed(known, keys) -> bool:
@@ -301,6 +302,11 @@ def remix(name: str | None):
     # both (schema.Override). Appended before MEMORY: its bridge is a DRAM unit.
     if HOOKS not in r.modules and HOOKS in known and hooks_needed(known, r.modules):
         r = dataclasses.replace(r, modules=r.modules + (HOOKS,))
+    # MACHINES WITH A MACHINE THAT NEEDS IT: the machine table owns every
+    # machine row's stock sites (modules/machines). Appended before MEMORY:
+    # its table is a DRAM unit.
+    if MACHINES not in r.modules and MACHINES in known and known[MACHINES].select(frozenset(r.modules))["linked"]:
+        r = dataclasses.replace(r, modules=r.modules + (MACHINES,))
     # MEMORY WITH EVERY DRAM UNIT: the platform's arena reserve, sized from
     # what the remix's modules claim (modules/memory). Appended last; it has
     # no code, so nothing it selects moves.

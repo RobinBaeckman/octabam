@@ -2,7 +2,7 @@
 
 A circuit-modelled Roland TB-303 voice that runs on the Octatrack MKI's ColdFire, one voice per
 track. Since v7.0 it is a machine of its own, **OCTA-303**: row 5 of the track's machine list (row 6,
-below ANALOG BD, in an image that carries both: [HOOKS](../hooks/README.md) `machine_rows`), with
+or later in an image with other machines: the machine table, [MACHINES.md](../../docs/contributing/MACHINES.md)), with
 its own PLAYBACK and SETUP pages. It needs no sample. It is calibrated against recordings of a real
 TB-303 (Din Sync's x0xb0x reference set, 400 notes with known knob positions) and optionally plays
 Robin Whittle's Devil Fish modifications through the companion FX module `devilish`.
@@ -202,8 +202,8 @@ instruction differently from the chip.
 
 - The ColdFire load on the unit (CF METER).
 - `SYNTH MACHINE` and `octa303` cannot share an image (the FLEX renderer and the page resolver).
-  `analog-bassdrum` can since 28 Oct 2026, through HOOKS (`machine_rows`: OCTA-303 on row 6 of a
-  scrolling list, its renderer after ANALOG BD's): both UI gates pass on the one image under the
+  `analog-bassdrum` can since 28 Oct 2026, through the machine table (MACHINES since 29 Oct; rows
+  by module key, OCTA-303 after ANALOG BD): both UI gates pass on the one image under the
   port, not flashed. A project saved on an image without ANALOG BD (OCTA-303 on row 5) opens as
   OCTA-303 on row 6 in one with both: the Part stores FLEX and the `T` `B` 1 signature, never the
   row, and `o3_type` gives the row from the signature (🟡 from the code; not run across two images).

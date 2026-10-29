@@ -90,13 +90,27 @@ def main():
                     "--tree", str(OUT / "tree"), "--out", str(card)], check=True, cwd=ROOT)
     image = OUT / "image.bin"
     shutil.copy2(os.environ.get("O3_IMAGE", ROOT / "out/mainos_bus.bin"), image)
-    # Beside ANALOG BD (modules/hooks machine_rows) OCTA-303 is row 6 of seven, UI type 6: the
+    # Beside ANALOG BD (the machine table, modules/machines) OCTA-303 is row 6 of seven, UI type 6: the
     # machine list's row count, poked at 0x40079248, says which image this is. SELECT's six DOWNs
     # land on the last row either way.
     global PB_TABLE5
     o3_row = image.read_bytes()[0x40079248 - 0x40000400 + 3] - 1
-    PB_TABLE5 = 0x400D5F38 + 4 * o3_row
     sym = symbols()
+    # On the machine table (modules/machines) the records by row are its mt_pages, not stock's
+    # table, and OCTA-303's row is its place among the image's machines, by key (mt_sigs).
+    rows = o3_row + 1
+    if "mt_sigs" in sym:                  # rows by module key: OCTA-303 need not be the last
+        n = rows - 5
+        dump = subprocess.check_output(["m68k-elf-objdump", "-s", f"--start-address={sym['mt_sigs']:#x}",
+                                        f"--stop-address={sym['mt_sigs'] + 2 * n:#x}",
+                                        str(ROOT / "out/platform/runtime/runtime.elf")], text=True)
+        words = bytes.fromhex("".join(l[10:45].replace(" ", "") for l in dump.splitlines()
+                                      if l.startswith(" ")))[:2 * n]    # objdump -s: the hex columns
+        o3_row = 5 + [words[i:i + 2] for i in range(0, 2 * n, 2)].index(b"TB")
+    # SELECT's six DOWNs reach the last row (a 0.25 s hold repeats); short UPs then climb to ours.
+    global SELECT
+    SELECT = SELECT[:-2] + [e for _ in range(rows - 1 - o3_row) for e in key(0x33, 0.25, 0.06)] + SELECT[-2:]
+    PB_TABLE5 = sym.get("mt_pages", 0x400D5F38) + 4 * o3_row
     rec = sym["o3_desc"] + 0x194          # the machine's record (o3_desc's second, O3_DLEN apart)
 
     # 1. select OCTA-303, edit SETUP

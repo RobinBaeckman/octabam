@@ -16,7 +16,7 @@ the stock record (a Detour at the resolver's table load -- in DRAM, no ROM cave)
 """
 import os
 
-from remix.schema import Category, Detour, Gate, Kind, Linked, Module, Poke, Proof, SymbolRef
+from remix.schema import Category, Detour, Gate, Kind, Knob, Linked, Machine, Module, Poke, Proof, SymbolRef
 
 # This module's own directory relative to octabam's root (the build's cwd), as poly.s's manifest.
 _HERE = os.path.relpath(os.path.dirname(os.path.realpath(__file__)))
@@ -38,9 +38,9 @@ def remix_inc(modules, remix=None):
     """remix.inc for octa303.s: dEVILish's FX id when the remix carries it.
 
     The build calls include(modules, remix) (schema.Linked.include); the remix is not needed here."""
-    from remix import hooks_flags
+    from remix import hooks_flags, machine_flags
     return ("        .set    DEVIL_ID, 0x%x\n" % (DEVIL_ID if "DEVILISH" in modules else 0x100)
-            + hooks_flags.inc("OCTA303", modules))
+            + hooks_flags.inc("OCTA303", modules) + machine_flags.inc("OCTA303", modules))
 
 
 CHROM_HOOK = 0x4004FC58                  # `lea (4,a2,a2.l*4),a2; mvz.b 0x100b14cf,d0` (quantizer's qz_chrom site)
@@ -69,6 +69,14 @@ MODULE = Module(
                 "v6.3-v6.9 played for hours (two or three tracks, with dEVILish and DisTorX). The engine is "
                 "bit-exact against tools/octa303/ref303.py (test_octa303); the panel under the port in "
                 "verify_octa303_ui. The ColdFire load is not measured on the unit."),
+    # On the machine table (modules/machines) beside another machine; alone, the claims below.
+    # sy_render plays both the machine's tracks and TB303* sample tracks, so it is a `render`.
+    machine=Machine(
+        name="OCTA-303", short="303", sig="TB",
+        knobs=(Knob("TUNE", 64), Knob("CUT", 64), Knob("RES", 64), Knob("ENV", 64), Knob("DEC", 64),
+               Knob("ACC", 0), Knob("WAVE", 0, 4, "o3_fmt_wave"), Knob("GATE", 0, 2, "o3_fmt_gate"),
+               Knob("FINE", 64, fmt="o3_fmt_fine"), Knob("SLID", 0), Knob("DRIV", 0), Knob("ACCV", 64)),
+        render="sy_render", record="o3_mdesc"),
     linked=(
         Linked("octa303", os.path.join(_HERE, "octa303.s"), dram=True, include=remix_inc),
     ),

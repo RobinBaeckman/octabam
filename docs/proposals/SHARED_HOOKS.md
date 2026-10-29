@@ -29,21 +29,44 @@ SYNTH MACHINE) and goes with phase 6; SCALE QUANTIZER gave it to SYNTH
 MACHINE on 30 Sep 2026, so section 2's row for it was wrong about SCALE
 QUANTIZER.
 
-**Phase 6, first pair (28 Oct 2026).** ANALOG BD and OCTA303 share an image
-through HOOKS's `machine_rows` bridge, not a PARTS machine registry: the two
-are in-tree, and chaining one's not-mine paths into the other's routines
-(built under `HK_MACHINE_ROWS`) needed no registry. ANALOG BD keeps row 5 and
-every shared hook; OCTA-303 moves to row 6; HOOKS pokes the lists to seven
-rows and takes the machine list's drawer so it scrolls. ✅ under Unicorn
-(`verify_hooks`) and under the port (both machines' UI gates on the one
-image, the list scrolling, each row's commit), not flashed; each alone
-byte-identical. One measured surprise: the list's five key handlers clamp
-the cursor to 0..5 after moving -- one past stock's last row, which is why a
-single added machine never met it ([TRAPS.md](../contributing/TRAPS.md#trap-machine-clamp)).
-Still open: CX OSC, SYNTH MACHINE and BLACKPYRAMIDS_303 (the last can never
-sit beside ANALOG BD: both put a DSP voice in SPRING REV's words), and the
-MIDI note-on site `0x4000e746`. Whether a registry earns its code depends on
-those three: a third machine on the list makes chaining by pairs grow.
+**Phase 6, the machine table (29 Oct 2026).** The first pair (28 Oct) shared
+an image through a HOOKS bridge, `machine_rows`, which chained ANALOG BD's
+not-mine paths into OCTA303's routines. That grows by pairs, and POLY, LADDER
+and GRAINER needed rows too, so the bridge is retired for a registry: the
+platform module **MACHINES** (`modules/machines`,
+[MACHINES.md](../contributing/MACHINES.md)). Decisions, each with its reason:
+
+- **Its own module, not HOOKS or STORE** (sambanks/octabam#967 asked; no
+  reply yet). One module, one job: HOOKS bridges sites whose owners stay
+  standalone; the table is the owner of a family. PARTS (#824) was withdrawn,
+  so it is not there either.
+- **A declared contract, not a bridge per pair.** A machine declares
+  `schema.Machine` (name, short name, a two-byte signature saved in the Part,
+  twelve knobs, a `frame` voice or a `render` renderer, `state`, `notes`, an
+  optional page `record`) and claims none of the 18 owned sites; the build
+  generates rows, records and dispatch. Adding a machine edits only its own
+  module.
+- **Rows by module key.** A Part stores FLEX and the signature, never the row,
+  so a project survives a remix that reorders the list.
+- **Rule 4.1 kept.** No machine: no MACHINES. ANALOG BD or OCTA303 alone keep
+  their claims and bytes (✅ images identical to origin/main's). Section 8's
+  second falsifier therefore fired, and is accepted: those two keep a direct
+  path beside the registry, because they run on units and a reflash to move
+  them buys nothing.
+- **Stock's PLAYBACK record table is not grown.** It has seven rows and its
+  eighth word is the FX1 table's ([TRAPS.md](../contributing/TRAPS.md#trap-pb-table-neighbour));
+  the table keeps its own and repoints the resolver and the four other readers.
+- **Note input is the MIDI track.** MIDI track t plays the machine on audio
+  track t, through the MIDI send primitive `0x40010bc8`: chords (NOT2-NOT4),
+  LEN, the CHROMATIC keyboard and MIDI note-in, the unit's own ways of
+  playing notes. An audio track's trig carries one note.
+
+Clients: ANALOG BD and OCTA303 (`render`, their own records), POLY and
+LADDER (`frame`). ✅ under Unicorn (`verify_machines`); under the port see
+MACHINES.md section 6. Not flashed. Still open: GRAINER, which needs the
+contract's sample access (MACHINES.md section 4, designed from the
+disassembly, not built); CX OSC, SYNTH MACHINE and BLACKPYRAMIDS_303 (author
+repositories); the MIDI note-on site `0x4000e746`.
 
 Confidence markers: ✅ measured, 🟡 inferred with a falsifier stated,
 ⬜ not looked at.

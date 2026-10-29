@@ -1479,6 +1479,89 @@ class Override:
     module: str
 
 
+@dataclass(frozen=True)
+class Knob:
+    """One of a machine's twelve page slots (Machine.knobs): its name on the
+    page (a 6-byte field: five characters at most, docs/contributing/TRAPS.md
+    trap-name-nul), its default on a new track, its count of values (128 =
+    0..127; a formatter outranks the count, trap-formatter) and its display
+    formatter: a linked symbol, a stock address, or None for stock's "%d"
+    (0x4003c178). count=0 hides the slot (ANALOG BD's MODEL, set by its
+    engine browser)."""
+
+    name: str
+    default: int = 0
+    count: int = 128
+    fmt: str | int | None = None
+
+    def __post_init__(self):
+        if len(self.name) > 5 or not self.name.isascii():
+            raise ValueError(f"Knob {self.name!r}: at most five ASCII characters (trap-name-nul)")
+        if not 0 <= self.count <= 128 or not 0 <= self.default <= 127:
+            raise ValueError(f"Knob {self.name!r}: count 0..128, default 0..127")
+        if self.count and self.default >= self.count:
+            raise ValueError(f"Knob {self.name!r}: default {self.default} past its {self.count} values")
+
+
+@dataclass(frozen=True)
+class Machine:
+    """A track machine, declared by its module: the contract with the machine
+    table (modules/machines, docs/contributing/MACHINES.md). The table owns
+    every stock site a machine row needs -- the list's rows and names, SRC
+    SETUP, the commits, the Part validator, the page records, the FLEX
+    renderer entry, the note input -- and the build generates its rows and
+    dispatch from these declarations. A machine claims none of those sites.
+
+    A track on the machine is stored as FLEX and signed in its Part
+    (`sig`, two ASCII bytes and 1, at Part' + 0x3c + 30 * track): `sig` is
+    saved in users' projects, so it never changes once shipped.
+
+    The sound is one of:
+      * `frame`: a voice, `void frame(state *, const uint8_t pv[12],
+        const int32_t keys[notes], int32_t out[32])`, one 16-sample frame a
+        call, out 16 L then 16 R in Q28 (1.0 = full scale); C ABI, keeps
+        d2-d7/a2-a6 and the EMAC state. `state` bytes a track, zeroed when a
+        track joins the machine. The table renders it into the FLEX stream.
+      * `render`: a whole FLEX renderer (track, ping, start, end), as the
+        kind table calls one, that hands every track not its own to the
+        symbol MT_NEXT the build defines in its remix.inc. For machines whose
+        sound is not a ColdFire frame (ANALOG BD's DSP voice, OCTA303's
+        TB303* sample tracks).
+    `notes`: how many keys the voice holds (0 = none, 1 = mono, 4 = a
+    four-note chord); the table fills `keys` from the track's note input.
+    `record`: the machine's own page record, `uint32_t record(Part', track)`
+    -> its P pointer (PARAM_PAGES.md 2), for a machine whose page depends on
+    the track; without it the table builds one from `knobs`, a clone of the
+    user's FLEX record.
+    """
+
+    name: str                       # the list's row and the page's title, 12 characters at most
+    short: str                      # the page's abbreviation, 4 at most
+    sig: str                        # two ASCII characters, saved in the Part
+    knobs: tuple[Knob, ...]         # 12: PLAYBACK slots 0-5, SETUP 6-11
+    frame: str | None = None
+    state: int = 0
+    notes: int = 0
+    render: str | None = None
+    record: str | None = None
+
+    def __post_init__(self):
+        n = self.name
+        if len(n) > 12 or len(self.short) > 4 or not (n + self.short).isascii():
+            raise ValueError(f"Machine {n!r}: a name of 12 ASCII characters at most, a short name of 4")
+        if len(self.sig) != 2 or not self.sig.isascii() or not self.sig.isprintable():
+            raise ValueError(f"Machine {n!r}: sig is two printable ASCII characters")
+        if len(self.knobs) != 12:
+            raise ValueError(f"Machine {n!r}: twelve knobs, PLAYBACK 0-5 then SETUP 6-11")
+        if any(not k.count for k in self.knobs[:6]):
+            raise ValueError(f"Machine {n!r}: only a SETUP knob (6-11) can be hidden (count 0)")
+        if (self.frame is None) == (self.render is None):
+            raise ValueError(f"Machine {n!r}: its sound is a frame or a render, one of them")
+        if self.frame is None and (self.state or self.notes):
+            raise ValueError(f"Machine {n!r}: state and notes belong to a frame")
+        if self.notes not in (0, 1, 2, 3, 4) or self.state % 4:
+            raise ValueError(f"Machine {n!r}: notes 0..4, state in longs")
+
 SELECTABLE = frozenset({"linked", "detours", "symbol_refs", "overrides", "pokes", "claims"})
 
 
@@ -1598,6 +1681,9 @@ class Module:
     # DSP work outside the FX pricer (for example a CF-registered source).
     # An explicit gap must block pressure qualification, never report N/A.
     pressure_blocker: str = ""
+    # A TRACK MACHINE (schema.Machine): the machine table (modules/machines)
+    # gives it a row of the machine list and dispatches to it.
+    machine: Machine | None = None
     # A DSP SOURCE MACHINE: repo-relative path of a script whose
     # integrate(img, stock) -> (pre-boot payloads, pokes, log) writes the
     # machine's DSP code into both payloads, last, after every DSP pass

@@ -33,19 +33,22 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`events-empty`](events-empty/README.md) | EVENTS with no clients: no event hooks or dispatcher code. | `make check`: Empty EVENTS selection: stock boundaries checked in the built image. |
 | [`ext-probe`](ext-probe/README.md) | octabam's core and stock effects (EQUALIZER's id is the probe's) with EXTPROBE on FX1: the highest window word a reverb writes. | `make check` |
 | [`gateverb`](gateverb/README.md) | GATE VERB alone: the fixture of its render gate. | local render: `verify_gateverb`; not flashed |
+| [`grainer`](grainer/README.md) | stock effects with GRAINER's screen: the grain strip in the SRC page's sample box. | port-gated: the strip under the port (bench) |
 | [`hooks`](hooks/README.md) | MORPH, REC_TRIG_MUTE and REC THRESHOLD together (HOOKS bridges the [TRACK] key layer and the status icons) with STORE and the stock effects. | port-gated: verify_hooks: the bridged chain and table under Unicorn, and this image's sites |
 | [`hooks-boot`](hooks-boot/README.md) | BOOT TRACE beside MIDI PART STATE and MIDI LOOPBACK: HOOKS runs both at the boot's post-loader call. | port-gated: verify_hooks: the boot chain under Unicorn and in this image |
 | [`hooks-chrom-303`](hooks-chrom-303/README.md) | OCTA303 (the OCTA-303 machine) beside SCALE QUANTIZER: HOOKS gives a 303 track's CHROMATIC keys to OCTA303 and every other track's to SCALE QUANTIZER. | port-gated: verify_hooks: the bridged CHROMATIC sites in this image and the chains under Unicorn |
 | [`hooks-chrom-bp`](hooks-chrom-bp/README.md) | BLACKPYRAMIDS_303 beside SCALE QUANTIZER: HOOKS gives a BLACKPYRAMIDS track's CHROMATIC octave keys, key index and keyboard picture to it and every other track's to SCALE QUANTIZER; SPRING REV given up. | port-gated: verify_hooks: the bridged CHROMATIC sites in this image and the chains under Unicorn |
 | [`hooks-core`](hooks-core/README.md) | CORE + MORPH, REC THRESHOLD, CF METER, CF METER IDLE and BOOT TRACE: HOOKS owns the five sites they share with CORE. | port-gated: verify_hooks: the five bridged sites in this image; the chains under Unicorn |
-| [`hooks-machines`](hooks-machines/README.md) | ANALOG BD and OCTA303 in one image: HOOKS gives the track's machine list seven rows, ANALOG BD on row 5 and OCTA-303 on row 6, and the list scrolls. | port-gated: verify_hooks: the bridged machine sites in this image; the two machines' UI gates under the port |
 | [`ids64`](ids64/README.md) | BBD on FX2 id 0x25 in a 64-id image (DSP dispatch and ColdFire tables grown). | `make check`: port only; not flashed |
 | [`kits`](kits/README.md) | KITS (255 Kits per project) on the stock effects. | port-gated: verify_kits under the port |
 | [`kyoti-fixes`](kyoti-fixes/README.md) | stock effects with QUANTIZE_LIVE_REC_TOGGLE, ERASE_EMPTY_TRIGLESS_LOCKS and BATCH_BUGFIXES together. | `make check` |
 | [`kyoti-mute-jump`](kyoti-mute-jump/README.md) | stock effects with MUTE_MODES and DIRECT_JUMP_KYOTI together. | `make check` |
 | [`kyoti-mute-sidechain`](kyoti-mute-sidechain/README.md) | stock effects with MUTE_MODES and SIDECHAIN_COMPRESSOR together: a muted KEY track keeps feeding the compressor (SC_KEY). | `make check` |
+| [`ladder`](ladder/README.md) | stock effects with LADDER's screen text. | port-gated: the labels under the port (bench) |
 | [`lofi-amf-fix`](lofi-amf-fix/README.md) | Reference minimal build: the LO-FI AMF mpysu->mpyuu fix, alone. | `make check` |
 | [`lofi2`](lofi2/README.md) | LOFI2 beside the stock effects (all but PLATE REV and SPRING REV, whose words it takes). | `make check` |
+| [`machines`](machines/README.md) | Every machine on the machine table: ANALOG BD, LADDER, OCTA-303, POLY on rows 5-8 of the track's machine list. | port-gated: verify_machines; each machine's UI gate on this image; verify_poly_port |
+| [`machines-pair`](machines-pair/README.md) | ANALOG BD and OCTA303 in one image: the machine table gives the track's machine list seven rows, ANALOG BD on row 5 and OCTA-303 on row 6, and the list scrolls. | port-gated: verify_hooks: the bridged machine sites in this image; the two machines' UI gates under the port |
 | [`midi-loopback`](midi-loopback/README.md) | Stock effects plus the Part-scoped per-track MIDI loopback routing. | on hardware |
 | [`midi-scales`](midi-scales/README.md) | All twelve keys and seven modes in the native ARP SETUP KEY control. | port-gated |
 | [`midi-scenes`](midi-scenes/README.md) | Reference minimal build: the MIDI SCENES ColdFire patch, plus direct-jump so `swd` runs. | port-gated: `verify_scenes` against MIDISC2.1 under the port; not flashed |
@@ -58,6 +61,7 @@ Each carries one module, or one combination, for that module's gates: `make chec
 | [`persistent-buffers`](persistent-buffers/README.md) | Recorder buffers BUFFERS/REC1.wav..REC8.wav under the project on SAVE / LOAD. | `make check`: verify_persistent_buffers under the port |
 | [`pext-probe`](pext-probe/README.md) | PEXT PROBE on FX1 and USB audio out (TRACKS) beside the stock effects (all but EQUALIZER, whose id it takes, and PLATE REV and SPRING REV, whose words it takes). | `make check` |
 | [`plocks-p2`](plocks-p2/README.md) | Page-2 parameter locks (PLOCKS P2) and page-2 scene locks (SCENES P2), stock effects. | port-gated: verify_plocks_p2 under the port |
+| [`poly`](poly/README.md) | stock effects with POLY's voice. | port-gated: the voice under the port (verify_poly_voice) |
 | [`quantize-live-rec-toggle`](quantize-live-rec-toggle/README.md) | stock effects with QUANTIZE_LIVE_REC_TOGGLE: QUANTIZE LIVE REC from [REC] + [PLAY]. | `make check` |
 | [`rec-threshold`](rec-threshold/README.md) | stock effects with the threshold-armed recorder TRIG THR, its LEV and an IN meter: the image for a unit. | on hardware: Chupitnik's MKII, 11-13 Oct 2026, THR1 to THR9 from the card: armed with TRACK 1 + REC AB, silence never records, the input starts the take, a second press cancels, LEV and IN on RECORDING SETUP 2, TRIG moved off THR while armed drops the arm and the blink, an armed track's icon blinks, armed inside RECORDING SETUP 1 it records; THR9 is this code |
 | [`rec-trig-mute`](rec-trig-mute/README.md) | stock effects with REC_TRIG_MUTE: [TRACK]+[NO]/[YES] mute/unmute recorder trigs. | `make check` |

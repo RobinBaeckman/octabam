@@ -18,13 +18,16 @@ def main():
     image=OUT/'image.bin';shutil.copy2(os.environ.get('AB_IMAGE',ROOT/'out/mainos_bus.bin'),image)
     sym={l.split()[-1]:int(l.split()[0],16) for l in subprocess.check_output(['m68k-elf-nm',str(ROOT/'out/platform/runtime/runtime.elf')],text=True).splitlines() if len(l.split())==3}
     if os.environ.get('AB_SYMBOLS'): sym=json.loads(pathlib.Path(os.environ['AB_SYMBOLS']).read_text())
-    spans=f'0x40170f60,6322={OUT}/part.bin;{sym["desc"]:#x},916={OUT}/desc.bin;0x400d5f4c,4={OUT}/page.bin;0x460e70e0,4={OUT}/pool.bin;0x400bb7d0,4={OUT}/setup.bin;0x460e5e30,28={OUT}/list.bin;0x100a4ece,6322={OUT}/shadow.bin;0x80000830,1={OUT}/live.bin;0x460e738e,16={OUT}/navigation.bin'
+    # Our row's record: stock's table row 5 alone, the machine table's mt_pages row 5 beside
+    # another machine (modules/machines; ANALOG BD is its first row, by key).
+    page=sym.get('mt_pages',0x400d5f38)+20
+    spans=f'0x40170f60,6322={OUT}/part.bin;{sym["desc"]:#x},916={OUT}/desc.bin;{page:#x},4={OUT}/page.bin;0x460e70e0,4={OUT}/pool.bin;0x400bb7d0,4={OUT}/setup.bin;0x460e5e30,28={OUT}/list.bin;0x100a4ece,6322={OUT}/shadow.bin;0x80000830,1={OUT}/live.bin;0x460e738e,16={OUT}/navigation.bin'
     cmd=[os.environ.get('AB_EMU',str(ROOT/'out/emu/ot_emu')),'--image',str(image),'--card',str(card),'--set','OCTABAM','--project','RIG','--load-ms','20000','--dsp','--mem-dump',spans]
     cmd += ["--lcd", str(OUT/"lcd.bin")]
     # T1 -> SRC SETUP -> bottom row -> YES; the former MODEL encoder is inert.
     script=key(0x10)+[(.6,'key 0x2d down'),(.3,'key 0x22 down'),(.3,'key 0x22 up'),(.3,'key 0x2d up')]
     for _ in range(6):script+=key(0x20,.25,.25)
-    # Beside OCTA303 (modules/hooks machine_rows) the list has a seventh row, OCTA-303's,
+    # Beside OCTA303 (the machine table, modules/machines) the list has a seventh row, OCTA-303's,
     # below ours: the machine list's row count, poked at 0x40079248, says which image this is.
     # A short press: a 0.25 s hold auto-repeats (the DOWNs above rely on it only to reach the end).
     rows=image.read_bytes()[0x40079248-0x40000400+3]
