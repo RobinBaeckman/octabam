@@ -1678,8 +1678,9 @@ class Panel:
                  play_pump_ms=10.0, backend="port", port_bin=PORT_BIN, port_args=(),
                  card_file=None, backend_note="", pool=None, card_builder=None,
                  staged_audio=None, sound=False, takes_dir=None, card_persistent=False,
-                 card_rw=False, card_meta=None):
+                 card_rw=False, card_meta=None, frame_always=False):
         self.image = image
+        self.frame_flag = frame_always    # --frame-always: the frame interrupt from boot without the cores
         # The persistent card (O19, 13 Sep 2026): card_file is the user's
         # own image, booted as it is with --card-rw (card_rw: the binary
         # knows the flag); card_meta is its sidecar (set, project,
@@ -1997,7 +1998,7 @@ class Panel:
             # is always live, and it is what turns a manual [TRIG] into a
             # voice while the sequencer is stopped.
             self.playing = False
-            self.frame_always = bool(self.sound_wanted)
+            self.frame_always = bool(self.sound_wanted) or self.frame_flag
             if self.frame_always and not rt.frame:
                 rt.frame = True
                 rt.next_frame = rt.sample + FRAME_PERIOD
@@ -3744,6 +3745,13 @@ class Handler(BaseHTTPRequestHandler):
             addr, n = int(args.get("addr", "0"), 0), min(int(args.get("len", "4"), 0), 4096)
             ok, res = p.do(lambda rt: bytes(rt.uc.mem_read(addr, n)).hex(), timeout=30)
             self._json({"ok": ok, "addr": f"{addr:#x}", "hex": res if ok else None, "result": None if ok else res})
+        elif path == "/poke":
+            # write memory (the port's poke): ?addr=0x...&hex=... -- a bench engine
+            # standing in for ColdFire code feeds the firmware's RAM (GRAINER's strip)
+            addr, data = int(args.get("addr", "0"), 0), bytes.fromhex(args.get("hex", ""))
+            ok, res = (p.do(lambda rt: rt.uc.mem_write(addr, data), timeout=30) if 0 < len(data) <= 4096
+                       else (False, "needs ?addr= and 1..4096 bytes of ?hex="))
+            self._json({"ok": ok, "addr": f"{addr:#x}", "n": len(data), "result": None if ok else str(res)})
         elif path == "/rtstatus":
             # O17: the port child's `rtstatus` line (the DSP workers' MIPS, waits, edges, faults)
             if p.proc is None:
@@ -3896,6 +3904,9 @@ def main():
     ap.add_argument("--audio", action="append", default=[], metavar="DIR",
                     help="seed the sample pool with every WAV/AIFF in DIR (converted when the unit "
                          "would not read it), in addition to the project's sibling AUDIO; repeatable")
+    ap.add_argument("--frame-always", action="store_true",
+                    help="the frame interrupt from boot, as on the unit, also with --sound off: the UI task "
+                         "wakes every frame, so the firmware's own timers (a page's redraw) run while idle")
     ap.add_argument("--sound", choices=("on", "off"), default="on",
                     help="on (default): the port child runs --dsp-rt (the DSP cores in real time, O17) and its main output is captured "
                          "(/audio/status, /audio/pcm, /audio.wav, takes on PLAY..STOP); an rt child that cannot start is respawned "
@@ -4070,6 +4081,7 @@ def main():
                           play_pump_ms=25.0,
                           pool=pool, card_builder=builder, staged_audio=staged_audio,
                           sound=sound, takes_dir=takes_dir, card_persistent=card_path is not None,
+                          frame_always=a.frame_always,
                           card_rw=card_rw, card_meta=card_meta)
     Handler.html = (pathlib.Path(__file__).parent / "panel.html").read_bytes()
     print(f"panel: http://localhost:{a.port}/   image={image}   backend={backend}   model={model}"
